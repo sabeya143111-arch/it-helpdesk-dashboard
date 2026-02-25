@@ -1,8 +1,9 @@
 # ================================================================
-#   IT HELPDESK ANALYTICS DASHBOARD  — PREMIUM v5.1
+#   IT HELPDESK ANALYTICS DASHBOARD  — PREMIUM v6.0
 #   Author  : tarique14321495
 #   Data    : 2,494 records | Arabic Excel | 5 Columns
 #   Features: Bilingual AR/EN | Filters | KPIs | 18 Charts
+#             + AI Insights | Alerts | Trend | Export | Glow UI
 #   Run     : streamlit run app.py
 # ================================================================
 
@@ -12,7 +13,6 @@ import plotly.express as px
 import plotly.graph_objects as go
 import io
 
-# ── PAGE CONFIG ──────────────────────────────────────────────────
 st.set_page_config(
     page_title="IT Helpdesk Analytics",
     page_icon="🖥️",
@@ -20,7 +20,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ── PREMIUM CSS ──────────────────────────────────────────────────
+# ── PREMIUM CSS (v6 — Animated Glow + New Components) ────────────
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
@@ -43,6 +43,24 @@ st.markdown("""
 [data-testid="stSidebar"] h2,
 [data-testid="stSidebar"] h3  { color: #00d4ff !important; }
 
+/* ── Animated Header Glow ── */
+@keyframes glowPulse {
+    0%   { box-shadow: 0 10px 40px rgba(0,0,0,.5), 0 0 0px rgba(0,212,255,0); }
+    50%  { box-shadow: 0 10px 40px rgba(0,0,0,.5), 0 0 32px rgba(0,212,255,.22); }
+    100% { box-shadow: 0 10px 40px rgba(0,0,0,.5), 0 0 0px rgba(0,212,255,0); }
+}
+.glow-header {
+    animation: glowPulse 3s ease-in-out infinite;
+    background: linear-gradient(135deg,#081628 0%,#0a1e38 50%,#060d1f 100%);
+    padding: 20px 28px;
+    border-radius: 18px;
+    margin-bottom: 18px;
+    border: 1px solid rgba(0,212,255,.15);
+    position: relative;
+    overflow: hidden;
+}
+
+/* ── Tabs ── */
 .stTabs [data-baseweb="tab-list"] {
     background: rgba(255,255,255,.03);
     border: 1px solid rgba(0,212,255,.1);
@@ -66,6 +84,7 @@ st.markdown("""
     box-shadow: 0 2px 16px rgba(0,120,255,.3), 0 0 0 1px rgba(0,212,255,.2);
 }
 
+/* ── KPI Cards ── */
 .kpi {
     background: linear-gradient(145deg,#081628,#0d2040);
     border: 1px solid rgba(0,212,255,.12);
@@ -85,6 +104,7 @@ st.markdown("""
 .kpi-lbl   { font-size: .7rem; color: #5a8aaa; margin-top: 5px; display: block;
              letter-spacing: 1px; text-transform: uppercase; font-weight: 600; }
 
+/* ── Section Label ── */
 .sec {
     background: linear-gradient(90deg, rgba(0,120,255,.08) 0%, transparent 80%);
     border-left: 3px solid #00d4ff;
@@ -97,14 +117,84 @@ st.markdown("""
     letter-spacing: .2px;
 }
 
-hr { border: none; border-top: 1px solid rgba(0,212,255,.08) !important; margin: 14px 0 !important; }
+/* ── AI Insight Card ── */
+.ai-card {
+    background: linear-gradient(135deg,#071020,#0a1830);
+    border: 1px solid rgba(0,212,255,.15);
+    border-left: 4px solid #00d4ff;
+    border-radius: 14px;
+    padding: 16px 18px;
+    margin-bottom: 10px;
+}
+.ai-badge {
+    display: inline-block;
+    background: rgba(0,212,255,.12);
+    color: #00d4ff;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: .7rem;
+    font-weight: 700;
+    letter-spacing: .8px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+}
+.ai-text { color: #c0d8f0; font-size: .88rem; line-height: 1.6; }
 
+/* ── Alert Badges ── */
+.alert-red {
+    background: rgba(255,60,60,.12);
+    border: 1px solid rgba(255,60,60,.3);
+    color: #ff6060;
+    border-radius: 20px;
+    padding: 3px 12px;
+    font-size: .72rem;
+    font-weight: 700;
+    display: inline-block;
+}
+.alert-yellow {
+    background: rgba(255,200,0,.12);
+    border: 1px solid rgba(255,200,0,.3);
+    color: #ffc800;
+    border-radius: 20px;
+    padding: 3px 12px;
+    font-size: .72rem;
+    font-weight: 700;
+    display: inline-block;
+}
+.alert-green {
+    background: rgba(0,220,120,.1);
+    border: 1px solid rgba(0,220,120,.25);
+    color: #00dc78;
+    border-radius: 20px;
+    padding: 3px 12px;
+    font-size: .72rem;
+    font-weight: 700;
+    display: inline-block;
+}
+
+/* ── Progress Bar ── */
+.prog-wrap { margin-bottom: 10px; }
+.prog-label {
+    display: flex; justify-content: space-between;
+    color: #8ab4d4; font-size: .78rem; font-weight: 600; margin-bottom: 4px;
+}
+.prog-bar-bg {
+    background: rgba(255,255,255,.05);
+    border-radius: 20px; height: 10px; overflow: hidden;
+}
+.prog-bar-fill {
+    height: 10px; border-radius: 20px;
+    background: linear-gradient(90deg,#0048b3,#00d4ff);
+    transition: width .5s ease;
+}
+
+/* ── Other ── */
+hr { border: none; border-top: 1px solid rgba(0,212,255,.08) !important; margin: 14px 0 !important; }
 [data-testid="stDataFrame"] {
     border: 1px solid rgba(0,212,255,.1) !important;
     border-radius: 14px !important;
     overflow: hidden !important;
 }
-
 [data-testid="stSelectbox"] > div > div,
 [data-testid="stTextInput"] > div > div > input {
     background: #081628 !important;
@@ -112,7 +202,6 @@ hr { border: none; border-top: 1px solid rgba(0,212,255,.08) !important; margin:
     border-radius: 10px !important;
     color: #c0d8f0 !important;
 }
-
 .stDownloadButton > button {
     background: linear-gradient(135deg,#0050c8,#0080ff) !important;
     color: white !important;
@@ -129,7 +218,6 @@ hr { border: none; border-top: 1px solid rgba(0,212,255,.08) !important; margin:
     box-shadow: 0 6px 28px rgba(0,100,255,.55) !important;
     transform: translateY(-2px) !important;
 }
-
 [data-testid="stSlider"] [role="slider"] { background: #00d4ff !important; }
 [data-testid="stExpander"] {
     background: rgba(255,255,255,.02) !important;
@@ -164,6 +252,7 @@ T = {
         'tab_issues'    : '🔥 المشكلات',
         'tab_dept'      : '🏢 الإدارات',
         'tab_agents'    : '👨‍💻 الموظفون',
+        'tab_trend'     : '📈 الاتجاهات',
         'tab_raw'       : '🗃️ البيانات الخام',
         'kpi_sec'       : '📌 مؤشرات الأداء الرئيسية',
         'svc_dist'      : '⚙️ توزيع أنواع الخدمات',
@@ -200,6 +289,10 @@ T = {
         'top_dept_lbl'  : '🏅 أكثر إدارة طلباً',
         'top_issue_lbl' : '🔥 أكثر مشكلة تكراراً',
         'coverage_pct'  : '📋 نسبة التغطية',
+        'ai_insights'   : '🤖 الرؤى الذكية',
+        'alert_sec'     : '🔔 التنبيهات',
+        'trend_sec'     : '📈 حجم التذاكر حسب الترتيب',
+        'export_summary': '📋 تصدير الملخص',
     },
     'EN': {
         'title'         : 'IT Helpdesk Analytics Dashboard',
@@ -220,6 +313,7 @@ T = {
         'tab_issues'    : '🔥 Issues',
         'tab_dept'      : '🏢 Departments',
         'tab_agents'    : '👨‍💻 Agents',
+        'tab_trend'     : '📈 Trends',
         'tab_raw'       : '🗃️ Raw Data',
         'kpi_sec'       : '📌 Key Performance Indicators',
         'svc_dist'      : '⚙️ Service Type Distribution',
@@ -256,6 +350,10 @@ T = {
         'top_dept_lbl'  : '🏅 Busiest Department',
         'top_issue_lbl' : '🔥 Top Issue',
         'coverage_pct'  : '📋 Agent Coverage',
+        'ai_insights'   : '🤖 AI Smart Insights',
+        'alert_sec'     : '🔔 Alerts & Warnings',
+        'trend_sec'     : '📈 Ticket Volume Ranking',
+        'export_summary': '📋 Export Summary Report',
     }
 }
 
@@ -295,11 +393,12 @@ if not uploaded:
         ('🔥', tx['tab_issues']),
         ('🏢', tx['tab_dept']),
         ('👨‍💻', tx['tab_agents']),
+        ('📈', tx['tab_trend']),
     ]
     tiles_html = "".join([
         "<div style='background:linear-gradient(145deg,#081628,#0d2040);"
         "border:1px solid rgba(0,212,255,.12);border-top:3px solid #00d4ff;"
-        "border-radius:16px;padding:26px 20px;width:150px;"
+        "border-radius:16px;padding:26px 20px;width:140px;"
         "box-shadow:0 8px 24px rgba(0,0,0,.4);'>"
         f"<div style='font-size:2.4rem;'>{ic}</div>"
         f"<div style='color:#8ab4d4;margin-top:10px;font-size:.85rem;font-weight:600;'>{lb}</div>"
@@ -392,6 +491,7 @@ filtered = len(dff) < len(df)
 _ag  = dff[C_AGENT].dropna().value_counts()
 _dp  = dff[C_DEPT].dropna().value_counts()
 _is  = dff[C_MAIN].dropna().value_counts()
+_sv  = dff[C_SVC].dropna().value_counts()
 
 top_agent_name  = (str(_ag.index[0]).replace('−متعاقد','').replace('-متعاقد','').strip()
                    if len(_ag) else '—')
@@ -402,11 +502,63 @@ top_issue_name  = str(_is.index[0]) if len(_is) else '—'
 top_issue_count = int(_is.iloc[0])  if len(_is) else 0
 coverage_pct    = round(dff[C_AGENT].notna().sum() / max(len(dff), 1) * 100, 1)
 
-# Safe truncate
-top_dept_short  = (top_dept_name[:28] + "…") if len(top_dept_name) > 28 else top_dept_name
+top_dept_short  = (top_dept_name[:28] + "…")  if len(top_dept_name)  > 28 else top_dept_name
 top_issue_short = (top_issue_name[:28] + "…") if len(top_issue_name) > 28 else top_issue_name
 
-# ── HEADER ───────────────────────────────────────────────────────
+# ── ALERT THRESHOLDS ────────────────────────────────────────────
+avg_agent_tickets = (_ag.mean() if len(_ag) else 0)
+avg_dept_tickets  = (_dp.mean() if len(_dp) else 0)
+
+def alert_level(val, avg):
+    if avg == 0: return 'green'
+    ratio = val / avg
+    if ratio > 2.5: return 'red'
+    if ratio > 1.5: return 'yellow'
+    return 'green'
+
+# ── HELPERS ──────────────────────────────────────────────────────
+def sec(label: str):
+    st.markdown(f"<div class='sec'>{label}</div>", unsafe_allow_html=True)
+
+def chart_cfg(fig, h: int = 450):
+    fig.update_layout(
+        height=h,
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        font_color='#8ab4d4',
+        margin=dict(l=10, r=10, t=50, b=10),
+        hoverlabel=dict(bgcolor='#0d2040', font_size=12, bordercolor='#00d4ff'),
+        xaxis=dict(gridcolor='rgba(255,255,255,.05)', linecolor='rgba(255,255,255,.08)'),
+        yaxis=dict(gridcolor='rgba(255,255,255,.05)', linecolor='rgba(255,255,255,.08)'),
+    )
+    return fig
+
+def insight_card(label, value, sub, color):
+    return (
+        f"<div style='background:linear-gradient(135deg,#081628,#091e3a);"
+        f"border:1px solid rgba(0,212,255,.1);border-left:3px solid {color};"
+        f"border-radius:12px;padding:14px 16px;margin-bottom:10px;'>"
+        f"<div style='color:#5a8aaa;font-size:.7rem;font-weight:700;"
+        f"letter-spacing:.8px;text-transform:uppercase;'>{label}</div>"
+        f"<div style='color:#e0f0ff;font-size:.88rem;font-weight:700;"
+        f"margin-top:5px;line-height:1.4;'>{value}</div>"
+        f"<div style='color:{color};font-size:.8rem;margin-top:3px;'>{sub}</div>"
+        f"</div>"
+    )
+
+def progress_bar_html(label, value, max_val, count):
+    pct = round(value / max_val * 100) if max_val > 0 else 0
+    return (
+        f"<div class='prog-wrap'>"
+        f"<div class='prog-label'><span>{label}</span><span>{count:,} tickets ({pct}%)</span></div>"
+        f"<div class='prog-bar-bg'><div class='prog-bar-fill' style='width:{pct}%;'></div></div>"
+        f"</div>"
+    )
+
+def alert_badge(level, text):
+    return f"<span class='alert-{level}'>{text}</span>"
+
+# ── ANIMATED HEADER ──────────────────────────────────────────────
 if filtered:
     badge_html = (
         '<span style="color:#1a3050"> │ </span>'
@@ -418,10 +570,7 @@ else:
     badge_html = ""
 
 st.markdown(
-    "<div style='background:linear-gradient(135deg,#081628 0%,#0a1e38 50%,#060d1f 100%);"
-    "padding:20px 28px;border-radius:18px;margin-bottom:18px;"
-    "border:1px solid rgba(0,212,255,.1);"
-    "box-shadow:0 10px 40px rgba(0,0,0,.5);position:relative;overflow:hidden;'>"
+    f"<div class='glow-header'>"
     "<div style='position:absolute;top:-50px;right:-50px;width:200px;height:200px;"
     "background:radial-gradient(circle,rgba(0,212,255,.06),transparent 70%);"
     "border-radius:50%;pointer-events:none;'></div>"
@@ -447,52 +596,17 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# ── HELPERS ──────────────────────────────────────────────────────
-def sec(label: str):
-    st.markdown(
-        f"<div class='sec'>{label}</div>",
-        unsafe_allow_html=True
-    )
-
-def chart_cfg(fig, h: int = 450):
-    fig.update_layout(
-        height=h,
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)',
-        font_color='#8ab4d4',
-        margin=dict(l=10, r=10, t=50, b=10),
-        hoverlabel=dict(bgcolor='#0d2040', font_size=12, bordercolor='#00d4ff'),
-        xaxis=dict(gridcolor='rgba(255,255,255,.05)', linecolor='rgba(255,255,255,.08)'),
-        yaxis=dict(gridcolor='rgba(255,255,255,.05)', linecolor='rgba(255,255,255,.08)'),
-    )
-    return fig
-
-def insight_card(label: str, value: str, sub: str, color: str) -> str:
-    return (
-        f"<div style='background:linear-gradient(135deg,#081628,#091e3a);"
-        f"border:1px solid rgba(0,212,255,.1);border-left:3px solid {color};"
-        f"border-radius:12px;padding:14px 16px;margin-bottom:10px;'>"
-        f"<div style='color:#5a8aaa;font-size:.7rem;font-weight:700;"
-        f"letter-spacing:.8px;text-transform:uppercase;'>{label}</div>"
-        f"<div style='color:#e0f0ff;font-size:.88rem;font-weight:700;"
-        f"margin-top:5px;line-height:1.4;'>{value}</div>"
-        f"<div style='color:{color};font-size:.8rem;margin-top:3px;'>{sub}</div>"
-        f"</div>"
-    )
-
-# ── TABS ─────────────────────────────────────────────────────────
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+# ── TABS (now 6) ─────────────────────────────────────────────────
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     tx['tab_overview'], tx['tab_issues'],
     tx['tab_dept'],     tx['tab_agents'],
-    tx['tab_raw'],
+    tx['tab_trend'],    tx['tab_raw'],
 ])
 
 # ════════════════════════════════════════════
 #  TAB 1 — OVERVIEW
 # ════════════════════════════════════════════
 with tab1:
-
-    # KPI cards
     sec(tx['kpi_sec'])
     k1, k2, k3, k4, k5 = st.columns(5)
     kpi_data = [
@@ -513,34 +627,62 @@ with tab1:
                 unsafe_allow_html=True
             )
 
+    # ── FEATURE 1: AI Smart Insights ────────────────────────────
+    sec(tx['ai_insights'])
+    top_svc_name  = str(_sv.index[0]) if len(_sv) else '—'
+    top_svc_count = int(_sv.iloc[0])  if len(_sv) else 0
+    pct_top_dept  = round(top_dept_count / max(len(dff), 1) * 100, 1)
+    pct_top_issue = round(top_issue_count / max(len(dff), 1) * 100, 1)
+    pct_top_svc   = round(top_svc_count / max(len(dff), 1) * 100, 1)
+
+    ai1, ai2, ai3 = st.columns(3)
+    with ai1:
+        st.markdown(
+            f"<div class='ai-card'>"
+            f"<div class='ai-badge'>🏢 Department</div>"
+            f"<div class='ai-text'><b style='color:#00d4ff'>{top_dept_short}</b> is the busiest department "
+            f"handling <b>{top_dept_count:,}</b> tickets — <b>{pct_top_dept}%</b> of total workload.</div>"
+            f"</div>",
+            unsafe_allow_html=True
+        )
+    with ai2:
+        st.markdown(
+            f"<div class='ai-card'>"
+            f"<div class='ai-badge'>🔥 Issue</div>"
+            f"<div class='ai-text'><b style='color:#ff6060'>{top_issue_short}</b> is the most reported "
+            f"issue with <b>{top_issue_count:,}</b> tickets — <b>{pct_top_issue}%</b> of all issues.</div>"
+            f"</div>",
+            unsafe_allow_html=True
+        )
+    with ai3:
+        st.markdown(
+            f"<div class='ai-card'>"
+            f"<div class='ai-badge'>📋 Coverage</div>"
+            f"<div class='ai-text'><b style='color:#40e0a0'>{coverage_pct}%</b> of tickets are assigned to agents. "
+            f"Top service: <b style='color:#ffc800'>{top_svc_name}</b> with "
+            f"<b>{top_svc_count:,}</b> tickets (<b>{pct_top_svc}%</b>).</div>"
+            f"</div>",
+            unsafe_allow_html=True
+        )
+
     # Insight strip
     st.markdown("<div style='height:6px'></div>", unsafe_allow_html=True)
     i1, i2, i3, i4 = st.columns(4)
     with i1:
-        st.markdown(insight_card(
-            tx['top_agent_lbl'], top_agent_name,
-            f"{top_agent_count:,} tickets", "#00d4ff"
-        ), unsafe_allow_html=True)
+        st.markdown(insight_card(tx['top_agent_lbl'], top_agent_name,
+                                 f"{top_agent_count:,} tickets", "#00d4ff"), unsafe_allow_html=True)
     with i2:
-        st.markdown(insight_card(
-            tx['top_dept_lbl'], top_dept_short,
-            f"{top_dept_count:,} tickets", "#f0a020"
-        ), unsafe_allow_html=True)
+        st.markdown(insight_card(tx['top_dept_lbl'], top_dept_short,
+                                 f"{top_dept_count:,} tickets", "#f0a020"), unsafe_allow_html=True)
     with i3:
-        st.markdown(insight_card(
-            tx['top_issue_lbl'], top_issue_short,
-            f"{top_issue_count:,} tickets", "#ff4060"
-        ), unsafe_allow_html=True)
+        st.markdown(insight_card(tx['top_issue_lbl'], top_issue_short,
+                                 f"{top_issue_count:,} tickets", "#ff4060"), unsafe_allow_html=True)
     with i4:
-        st.markdown(insight_card(
-            tx['coverage_pct'],
-            f"{coverage_pct}%",
-            "of tickets assigned", "#40e0a0"
-        ), unsafe_allow_html=True)
+        st.markdown(insight_card(tx['coverage_pct'], f"{coverage_pct}%",
+                                 "of tickets assigned", "#40e0a0"), unsafe_allow_html=True)
 
     st.markdown("---")
 
-    # 2 Pie charts
     r1, r2 = st.columns(2)
     with r1:
         svc = dff[C_SVC].value_counts().reset_index()
@@ -548,8 +690,7 @@ with tab1:
         fig = px.pie(svc, values='Count', names='Service',
                      title=tx['svc_dist'], hole=0.48, template=theme)
         fig.update_traces(textposition='inside', textinfo='percent+label', textfont_size=11)
-        fig.update_layout(showlegend=True,
-                          legend=dict(orientation='v', x=1.01, y=0.5, font_size=11))
+        fig.update_layout(showlegend=True, legend=dict(orientation='v', x=1.01, y=0.5, font_size=11))
         st.plotly_chart(chart_cfg(fig, 380), use_container_width=True)
     with r2:
         mc = dff[C_MAIN].value_counts().head(8).reset_index()
@@ -557,11 +698,9 @@ with tab1:
         fig = px.pie(mc, values='Count', names='Category',
                      title=tx['top8_issues'], hole=0.48, template=theme)
         fig.update_traces(textposition='inside', textinfo='percent+label', textfont_size=11)
-        fig.update_layout(showlegend=True,
-                          legend=dict(orientation='v', x=1.01, y=0.5, font_size=11))
+        fig.update_layout(showlegend=True, legend=dict(orientation='v', x=1.01, y=0.5, font_size=11))
         st.plotly_chart(chart_cfg(fig, 380), use_container_width=True)
 
-    # Top Departments bar
     sec(tx['top_dept_vol'])
     dv = dff[C_DEPT].value_counts().head(15).reset_index()
     dv.columns = ['Dept', 'Count']
@@ -573,15 +712,13 @@ with tab1:
     fig.update_traces(textposition='outside', marker_line_width=0)
     st.plotly_chart(chart_cfg(fig, 520), use_container_width=True)
 
-    # Stacked: Service × Main Category
     sec(tx['svc_x_issue'])
     top_m = dff[C_MAIN].value_counts().head(8).index.tolist()
     sm = (dff[dff[C_MAIN].isin(top_m)]
           .groupby([C_SVC, C_MAIN]).size().reset_index(name='Count'))
     fig = px.bar(sm, x=C_SVC, y='Count', color=C_MAIN,
                  barmode='stack', template=theme, text='Count')
-    fig.update_layout(xaxis_tickangle=-25,
-                      legend=dict(orientation='h', yanchor='bottom', y=1.01))
+    fig.update_layout(xaxis_tickangle=-25, legend=dict(orientation='h', yanchor='bottom', y=1.01))
     fig.update_traces(textposition='inside', marker_line_width=0)
     st.plotly_chart(chart_cfg(fig, 450), use_container_width=True)
 
@@ -611,19 +748,15 @@ with tab2:
     fig2.update_traces(textposition='outside', marker_line_width=0)
     st.plotly_chart(chart_cfg(fig2, max(380, top_n * 32)), use_container_width=True)
 
-    # Treemap
     sec(tx['treemap'])
     tree = (dff.dropna(subset=[C_MAIN, C_SUB])
                .groupby([C_MAIN, C_SUB]).size().reset_index(name='Count'))
     fig3 = px.treemap(tree, path=[C_MAIN, C_SUB], values='Count',
-                      template=theme, color='Count',
-                      color_continuous_scale='Blues')
+                      template=theme, color='Count', color_continuous_scale='Blues')
     fig3.update_traces(textinfo='label+value+percent root',
-                       marker_line_width=1,
-                       marker_line_color='rgba(0,0,0,.3)')
+                       marker_line_width=1, marker_line_color='rgba(0,0,0,.3)')
     st.plotly_chart(chart_cfg(fig3, 650), use_container_width=True)
 
-    # Heatmap: Service × Main
     sec(tx['heatmap_svc'])
     h_svcs = dff[C_SVC].value_counts().head(8).index.tolist()
     h_main = dff[C_MAIN].value_counts().head(12).index.tolist()
@@ -631,13 +764,9 @@ with tab2:
               .groupby([C_SVC, C_MAIN]).size().reset_index(name='Count'))
     piv    = heat.pivot(index=C_SVC, columns=C_MAIN, values='Count').fillna(0)
     fig4   = go.Figure(go.Heatmap(
-        z=piv.values,
-        x=piv.columns.tolist(),
-        y=piv.index.tolist(),
-        colorscale='YlOrRd',
-        text=piv.values.astype(int),
-        texttemplate='%{text}',
-        hoverongaps=False,
+        z=piv.values, x=piv.columns.tolist(), y=piv.index.tolist(),
+        colorscale='YlOrRd', text=piv.values.astype(int),
+        texttemplate='%{text}', hoverongaps=False,
         hovertemplate='Service: %{y}<br>Issue: %{x}<br>Count: %{z}<extra></extra>'
     ))
     fig4.update_layout(xaxis_tickangle=-35)
@@ -661,54 +790,66 @@ with tab3:
         fig.update_traces(textposition='outside', marker_line_width=0)
         st.plotly_chart(chart_cfg(fig, 500), use_container_width=True)
     with c2:
-        fig2 = px.pie(d, values='Tickets', names='Dept',
-                      hole=0.42, template=theme)
-        fig2.update_traces(textposition='inside',
-                           textinfo='percent+label', textfont_size=10)
+        fig2 = px.pie(d, values='Tickets', names='Dept', hole=0.42, template=theme)
+        fig2.update_traces(textposition='inside', textinfo='percent+label', textfont_size=10)
         st.plotly_chart(chart_cfg(fig2, 500), use_container_width=True)
 
-    # Dept × Service Type
     sec(tx['dept_svc'])
     top_d = d['Dept'].head(12).tolist()
     ds = (dff[dff[C_DEPT].isin(top_d)]
           .groupby([C_DEPT, C_SVC]).size().reset_index(name='Count'))
-    fig3 = px.bar(ds, x=C_DEPT, y='Count', color=C_SVC,
-                  barmode='stack', template=theme)
-    fig3.update_layout(xaxis_tickangle=-30,
-                       legend=dict(orientation='h', yanchor='bottom', y=1.01))
+    fig3 = px.bar(ds, x=C_DEPT, y='Count', color=C_SVC, barmode='stack', template=theme)
+    fig3.update_layout(xaxis_tickangle=-30, legend=dict(orientation='h', yanchor='bottom', y=1.01))
     fig3.update_traces(marker_line_width=0)
     st.plotly_chart(chart_cfg(fig3, 500), use_container_width=True)
 
-    # Dept × Main Category
     sec(tx['dept_issue'])
     top_m = dff[C_MAIN].value_counts().head(8).index.tolist()
     cr = (dff[dff[C_DEPT].isin(top_d) & dff[C_MAIN].isin(top_m)]
           .groupby([C_DEPT, C_MAIN]).size().reset_index(name='Count'))
-    fig4 = px.bar(cr, x=C_DEPT, y='Count', color=C_MAIN,
-                  barmode='stack', template=theme)
-    fig4.update_layout(xaxis_tickangle=-30,
-                       legend=dict(orientation='h', yanchor='bottom', y=1.01))
+    fig4 = px.bar(cr, x=C_DEPT, y='Count', color=C_MAIN, barmode='stack', template=theme)
+    fig4.update_layout(xaxis_tickangle=-30, legend=dict(orientation='h', yanchor='bottom', y=1.01))
     fig4.update_traces(marker_line_width=0)
     st.plotly_chart(chart_cfg(fig4, 530), use_container_width=True)
 
-    # Sunburst
     sec(tx['sunburst'])
     sun = (dff[dff[C_DEPT].isin(top_d)]
            .groupby([C_DEPT, C_SVC]).size().reset_index(name='Count'))
     fig5 = px.sunburst(sun, path=[C_DEPT, C_SVC], values='Count',
-                       template=theme, color='Count',
-                       color_continuous_scale='Blues')
+                       template=theme, color='Count', color_continuous_scale='Blues')
     fig5.update_traces(textinfo='label+percent root')
     st.plotly_chart(chart_cfg(fig5, 620), use_container_width=True)
 
 # ════════════════════════════════════════════
-#  TAB 4 — AGENTS
+#  TAB 4 — AGENTS  (+ FEATURE 3: Alerts)
 # ════════════════════════════════════════════
 with tab4:
     if dff[C_AGENT].dropna().empty:
         st.info("⚠️ No agent data available.")
     else:
         sec(tx['agent_wl'])
+
+        # ── FEATURE 3: Alert Badges per Agent ───────────────────
+        sec(tx['alert_sec'])
+        alert_html = ""
+        for ag_name, ag_count in _ag.head(10).items():
+            lvl   = alert_level(ag_count, avg_agent_tickets)
+            short = (str(ag_name).replace('−متعاقد','').replace('-متعاقد','').strip())[:24]
+            emoji = "🔴" if lvl == 'red' else ("🟡" if lvl == 'yellow' else "🟢")
+            alert_html += (
+                f"<div style='display:inline-flex;align-items:center;gap:8px;"
+                f"background:rgba(255,255,255,.03);border:1px solid rgba(0,212,255,.08);"
+                f"border-radius:10px;padding:7px 14px;margin:4px;'>"
+                f"<span style='color:#c0d8f0;font-size:.82rem;font-weight:600;'>{emoji} {short}</span>"
+                f"<span class='alert-{lvl}'>{ag_count:,} tickets</span>"
+                f"</div>"
+            )
+        st.markdown(
+            f"<div style='display:flex;flex-wrap:wrap;gap:4px;margin-bottom:16px;'>"
+            f"{alert_html}</div>",
+            unsafe_allow_html=True
+        )
+
         ag = (dff.dropna(subset=[C_AGENT])
                  .groupby([C_AGENT, '_short'])
                  .size().reset_index(name='Tickets')
@@ -727,71 +868,161 @@ with tab4:
             fig.update_traces(textposition='outside', marker_line_width=0)
             st.plotly_chart(chart_cfg(fig, 560), use_container_width=True)
         with c2:
-            fig2 = px.pie(ag, values='Tickets', names='_short',
-                          hole=0.42, template=theme)
-            fig2.update_traces(textposition='inside',
-                               textinfo='percent+label', textfont_size=10)
+            fig2 = px.pie(ag, values='Tickets', names='_short', hole=0.42, template=theme)
+            fig2.update_traces(textposition='inside', textinfo='percent+label', textfont_size=10)
             st.plotly_chart(chart_cfg(fig2, 560), use_container_width=True)
 
         top_ag_keys = ag[C_AGENT].tolist()
 
-        # Agent × Service Type
         sec(tx['agent_svc'])
         agv = (dff[dff[C_AGENT].isin(top_ag_keys)]
-               .groupby(['_short', C_SVC])
-               .size().reset_index(name='Count'))
-        fig3 = px.bar(agv, x='_short', y='Count', color=C_SVC,
-                      barmode='stack', template=theme)
+               .groupby(['_short', C_SVC]).size().reset_index(name='Count'))
+        fig3 = px.bar(agv, x='_short', y='Count', color=C_SVC, barmode='stack', template=theme)
         fig3.update_layout(xaxis_tickangle=-30, xaxis_title='Agent',
                            legend=dict(orientation='h', yanchor='bottom', y=1.01))
         fig3.update_traces(marker_line_width=0)
         st.plotly_chart(chart_cfg(fig3, 480), use_container_width=True)
 
-        # Agent × Main Category
         sec(tx['agent_issue'])
         top_m = dff[C_MAIN].value_counts().head(8).index.tolist()
         agi = (dff[dff[C_AGENT].isin(top_ag_keys) & dff[C_MAIN].isin(top_m)]
-               .groupby(['_short', C_MAIN])
-               .size().reset_index(name='Count'))
-        fig4 = px.bar(agi, x='_short', y='Count', color=C_MAIN,
-                      barmode='stack', template=theme)
+               .groupby(['_short', C_MAIN]).size().reset_index(name='Count'))
+        fig4 = px.bar(agi, x='_short', y='Count', color=C_MAIN, barmode='stack', template=theme)
         fig4.update_layout(xaxis_tickangle=-30, xaxis_title='Agent',
                            legend=dict(orientation='h', yanchor='bottom', y=1.01))
         fig4.update_traces(marker_line_width=0)
         st.plotly_chart(chart_cfg(fig4, 480), use_container_width=True)
 
-        # Agent × Department Heatmap
         sec(tx['agent_hm'])
         top_d2 = dff[C_DEPT].value_counts().head(12).index.tolist()
         cov = (dff[dff[C_AGENT].isin(top_ag_keys) & dff[C_DEPT].isin(top_d2)]
-               .groupby(['_short', C_DEPT])
-               .size().reset_index(name='Count'))
+               .groupby(['_short', C_DEPT]).size().reset_index(name='Count'))
         piv2 = cov.pivot(index='_short', columns=C_DEPT, values='Count').fillna(0)
         fig5 = go.Figure(go.Heatmap(
-            z=piv2.values,
-            x=piv2.columns.tolist(),
-            y=piv2.index.tolist(),
-            colorscale='Teal',
-            text=piv2.values.astype(int),
-            texttemplate='%{text}',
-            hoverongaps=False,
+            z=piv2.values, x=piv2.columns.tolist(), y=piv2.index.tolist(),
+            colorscale='Teal', text=piv2.values.astype(int),
+            texttemplate='%{text}', hoverongaps=False,
             hovertemplate='Agent: %{y}<br>Dept: %{x}<br>Tickets: %{z}<extra></extra>'
         ))
         fig5.update_layout(xaxis_tickangle=-35)
         st.plotly_chart(chart_cfg(fig5, 520), use_container_width=True)
 
 # ════════════════════════════════════════════
-#  TAB 5 — RAW DATA
+#  TAB 5 — TRENDS  (FEATURE 2 + 5)
 # ════════════════════════════════════════════
 with tab5:
-    sec(tx['raw_title'])
 
+    # ── FEATURE 2: Progress Bar Trend View ──────────────────────
+    sec(tx['trend_sec'])
+    tr1, tr2 = st.columns(2)
+
+    with tr1:
+        st.markdown(
+            "<div style='color:#00d4ff;font-weight:700;font-size:.9rem;"
+            "margin-bottom:12px;'>🏢 Top Departments</div>",
+            unsafe_allow_html=True
+        )
+        top_dp = dff[C_DEPT].value_counts().head(12)
+        max_dp = int(top_dp.iloc[0]) if len(top_dp) else 1
+        bars = "".join([
+            progress_bar_html(
+                (str(n)[:28]+"…") if len(str(n))>28 else str(n),
+                int(v), max_dp, int(v)
+            )
+            for n, v in top_dp.items()
+        ])
+        st.markdown(
+            f"<div style='background:rgba(255,255,255,.02);border:1px solid rgba(0,212,255,.08);"
+            f"border-radius:14px;padding:16px 20px;'>{bars}</div>",
+            unsafe_allow_html=True
+        )
+
+    with tr2:
+        st.markdown(
+            "<div style='color:#ff6060;font-weight:700;font-size:.9rem;"
+            "margin-bottom:12px;'>🔥 Top Issues</div>",
+            unsafe_allow_html=True
+        )
+        top_is = dff[C_MAIN].value_counts().head(12)
+        max_is = int(top_is.iloc[0]) if len(top_is) else 1
+        bars2  = "".join([
+            f"<div class='prog-wrap'>"
+            f"<div class='prog-label'><span>{(str(n)[:28]+'…') if len(str(n))>28 else str(n)}</span>"
+            f"<span>{int(v):,} ({round(int(v)/max_is*100)}%)</span></div>"
+            f"<div class='prog-bar-bg'><div style='height:10px;border-radius:20px;"
+            f"background:linear-gradient(90deg,#6b0020,#ff4060);width:{round(int(v)/max_is*100)}%;'>"
+            f"</div></div></div>"
+            for n, v in top_is.items()
+        ])
+        st.markdown(
+            f"<div style='background:rgba(255,255,255,.02);border:1px solid rgba(0,212,255,.08);"
+            f"border-radius:14px;padding:16px 20px;'>{bars2}</div>",
+            unsafe_allow_html=True
+        )
+
+    # Funnel chart (bonus visual)
+    st.markdown("---")
+    sec("📊 Ticket Funnel by Service Type")
+    fv = dff[C_SVC].value_counts().reset_index()
+    fv.columns = ['Service', 'Count']
+    fig_f = go.Figure(go.Funnel(
+        y=fv['Service'].tolist(),
+        x=fv['Count'].tolist(),
+        textinfo='value+percent initial',
+        marker=dict(color=['#0048b3','#0060d0','#0080f0','#00a0ff','#00c4ff','#00d4ff']),
+    ))
+    fig_f.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                        font_color='#8ab4d4', height=420,
+                        margin=dict(l=10,r=10,t=40,b=10))
+    st.plotly_chart(fig_f, use_container_width=True)
+
+    # ── FEATURE 5: Export Summary Report ─────────────────────────
+    st.markdown("---")
+    sec(tx['export_summary'])
+    summary_lines = [
+        "=" * 55,
+        "   IT HELPDESK ANALYTICS — SUMMARY REPORT",
+        "=" * 55,
+        f"  Total Records   : {len(dff):,}",
+        f"  Departments     : {dff[C_DEPT].nunique()}",
+        f"  Service Types   : {dff[C_SVC].nunique()}",
+        f"  Issue Categories: {dff[C_MAIN].nunique()}",
+        f"  Active Agents   : {dff[C_AGENT].dropna().nunique()}",
+        f"  Agent Coverage  : {coverage_pct}%",
+        "-" * 55,
+        f"  Top Department  : {top_dept_name} ({top_dept_count:,} tickets)",
+        f"  Top Issue       : {top_issue_name} ({top_issue_count:,} tickets)",
+        f"  Top Agent       : {top_agent_name} ({top_agent_count:,} tickets)",
+        f"  Top Service     : {top_svc_name} ({top_svc_count:,} tickets)",
+        "-" * 55,
+        "  TOP 5 DEPARTMENTS:",
+    ]
+    for i, (n, v) in enumerate(_dp.head(5).items(), 1):
+        summary_lines.append(f"    {i}. {n} — {int(v):,} tickets")
+    summary_lines.append("  TOP 5 ISSUES:")
+    for i, (n, v) in enumerate(_is.head(5).items(), 1):
+        summary_lines.append(f"    {i}. {n} — {int(v):,} tickets")
+    summary_lines.append("=" * 55)
+    summary_text = "\n".join(summary_lines)
+
+    st.code(summary_text, language="")
+    st.download_button(
+        label="⬇️ Download Summary (.txt)",
+        data=summary_text,
+        file_name="helpdesk_summary.txt",
+        mime="text/plain"
+    )
+
+# ════════════════════════════════════════════
+#  TAB 6 — RAW DATA
+# ════════════════════════════════════════════
+with tab6:
+    sec(tx['raw_title'])
     show_df = dff.drop(columns=['_short'], errors='ignore').copy()
 
     sc1, sc2 = st.columns([1, 3])
     with sc1:
-        fcol = st.selectbox(tx['filter_col'],
-                            [tx['all']] + show_df.columns.tolist())
+        fcol = st.selectbox(tx['filter_col'], [tx['all']] + show_df.columns.tolist())
     with sc2:
         srch = st.text_input(tx['search_ph'], "")
 
@@ -812,7 +1043,6 @@ with tab5:
     )
     st.dataframe(show_df, use_container_width=True, height=500)
 
-    # Column stats
     with st.expander(tx['col_stats']):
         stat_cols = st.columns(min(len(show_df.columns), 3))
         for i, col in enumerate(show_df.columns):
@@ -829,7 +1059,6 @@ with tab5:
                     use_container_width=True, hide_index=True, height=220
                 )
 
-    # Download button
     st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
     out = io.BytesIO()
     with pd.ExcelWriter(out, engine='openpyxl') as w:
