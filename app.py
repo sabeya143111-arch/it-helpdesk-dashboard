@@ -123,10 +123,28 @@ if not uploaded:
 
 # ── LOAD DATA ─────────────────────────────────────────────────
 try:
-    df_raw = pd.read_excel(uploaded, sheet_name=0)
-    df = rename_cols(df_raw.copy())
+    xl         = pd.ExcelFile(uploaded)
+    sheet_list = xl.sheet_names
+
+    with st.sidebar:
+        st.markdown("---")
+        selected_sheet = st.selectbox("📋 Sheet Select Karein", sheet_list)
+        st.markdown("---")
+
+    df_raw = pd.read_excel(uploaded, sheet_name=selected_sheet)
+    df     = rename_cols(df_raw.copy())
+
+    # ── COLUMN DEBUG (sidebar) ────────────────────────────────
+    with st.sidebar:
+        with st.expander("🔍 Column Debug Info"):
+            st.caption("Raw column names:")
+            for c in df_raw.columns.tolist():
+                st.code(repr(c))
+            st.caption("Renamed columns:")
+            st.write(df.columns.tolist())
+
 except Exception as e:
-    st.error(f"❌ Error: {e}")
+    st.error(f"❌ File load error: {e}")
     st.stop()
 
 # ── DETECT COLUMNS ────────────────────────────────────────────
@@ -147,7 +165,8 @@ st.markdown(f"""
   <h1 style='color:#00d4ff;margin:0;'>🖥️ IT Helpdesk Analytics Dashboard</h1>
   <p style='color:#adc6e5;margin:5px 0 0 0;'>
     📄 <b>{uploaded.name}</b> &nbsp;|&nbsp;
-    📋 Rows: <b>{len(df):,}</b> &nbsp;|&nbsp;
+    📋 Sheet: <b>{selected_sheet}</b> &nbsp;|&nbsp;
+    📊 Rows: <b>{len(df):,}</b> &nbsp;|&nbsp;
     🗂️ Columns: <b>{len(df.columns)}</b>
   </p>
 </div>
@@ -189,6 +208,8 @@ with tab1:
                          hole=0.45, template=theme)
             fig.update_traces(textposition='inside', textinfo='percent+label')
             st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("⚠️ Service_Type column nahi mili.")
     with r2:
         if col_priority:
             pri = df[col_priority].value_counts().reset_index()
@@ -205,6 +226,8 @@ with tab1:
                          title='📌 Status Distribution',
                          hole=0.45, template=theme)
             st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("⚠️ Priority / Status column nahi mili.")
 
 # ════════════ TAB 2: ISSUES ════════════
 with tab2:
@@ -218,6 +241,8 @@ with tab2:
         fig.update_layout(height=600, yaxis={'categoryorder': 'total ascending'}, showlegend=False)
         fig.update_traces(textposition='outside')
         st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("⚠️ Main_Category column nahi mili.")
 
     st.markdown('<div class="section-header">📂 Sub Categories</div>', unsafe_allow_html=True)
     if col_sub:
@@ -229,6 +254,8 @@ with tab2:
         fig2.update_layout(height=600, yaxis={'categoryorder': 'total ascending'}, showlegend=False)
         fig2.update_traces(textposition='outside')
         st.plotly_chart(fig2, use_container_width=True)
+    else:
+        st.info("⚠️ Sub_Category column nahi mili.")
 
     if col_main and col_sub:
         st.markdown('<div class="section-header">🔗 Main → Sub Category Treemap</div>', unsafe_allow_html=True)
@@ -259,18 +286,18 @@ with tab3:
             fig2.update_traces(textposition='inside', textinfo='percent+label')
             st.plotly_chart(fig2, use_container_width=True)
 
-        if col_main and col_dept:
+        if col_main:
             st.markdown('<div class="section-header">🔥 Issues by Department</div>', unsafe_allow_html=True)
-            cross = df.groupby([col_dept, col_main]).size().reset_index(name='Count')
             top_depts = d['Department'].head(10).tolist()
-            cross = cross[cross[col_dept].isin(top_depts)]
+            cross = df[df[col_dept].isin(top_depts)].groupby(
+                [col_dept, col_main]).size().reset_index(name='Count')
             fig3 = px.bar(cross, x=col_dept, y='Count', color=col_main,
                           title='Issue Type by Department', template=theme,
                           barmode='stack')
             fig3.update_layout(height=500, xaxis_tickangle=-30)
             st.plotly_chart(fig3, use_container_width=True)
     else:
-        st.info("⚠️ Department column not found in data.")
+        st.info("⚠️ Department column nahi mili.")
 
 # ════════════ TAB 4: AGENTS ════════════
 with tab4:
@@ -294,7 +321,7 @@ with tab4:
             fig2.update_traces(textposition='inside', textinfo='percent+label')
             st.plotly_chart(fig2, use_container_width=True)
 
-        if col_status and agent_col:
+        if col_status:
             st.markdown('<div class="section-header">📊 Agent × Status Breakdown</div>', unsafe_allow_html=True)
             top_agents = ag['Agent'].head(10).tolist()
             ag_status = df[df[agent_col].isin(top_agents)].groupby(
@@ -305,26 +332,29 @@ with tab4:
             fig3.update_layout(height=450, xaxis_tickangle=-30)
             st.plotly_chart(fig3, use_container_width=True)
     else:
-        st.info("⚠️ Agent column (Assigned_To / Resolved_By) not found in data.")
+        st.info("⚠️ Agent column (Assigned_To / Resolved_By) nahi mili.")
 
 # ════════════ TAB 5: TRENDS ════════════
 with tab5:
     st.markdown('<div class="section-header">📅 Monthly Ticket Trends</div>', unsafe_allow_html=True)
     if col_date:
         try:
-            df['_date'] = pd.to_datetime(df[col_date], errors='coerce')
+            df['_date'] = pd.to_datetime(df[col_date], errors='coerce', dayfirst=True)
             df['_month'] = df['_date'].dt.to_period('M').astype(str)
+
+            parsed_count = df['_date'].notna().sum()
+            st.caption(f"📅 {parsed_count:,} / {len(df):,} rows mein date successfully parse hui")
+
             monthly = df.groupby('_month').size().reset_index(name='Tickets')
             monthly = monthly.sort_values('_month')
 
             fig = px.line(monthly, x='_month', y='Tickets',
                           title='Monthly Ticket Volume', template=theme,
                           markers=True, line_shape='spline')
-            fig.update_layout(height=400, xaxis_title='Month', yaxis_title='Tickets',
-                               xaxis_tickangle=-45)
+            fig.update_layout(height=400, xaxis_title='Month',
+                               yaxis_title='Tickets', xaxis_tickangle=-45)
             st.plotly_chart(fig, use_container_width=True)
 
-            # Bar chart overlay
             fig2 = px.bar(monthly, x='_month', y='Tickets',
                           title='Monthly Tickets (Bar)', template=theme,
                           color='Tickets', color_continuous_scale='Blues', text='Tickets')
@@ -343,10 +373,11 @@ with tab5:
                                template=theme, markers=True)
                 fig3.update_layout(height=450, xaxis_tickangle=-45)
                 st.plotly_chart(fig3, use_container_width=True)
+
         except Exception as e:
-            st.error(f"Date processing error: {e}")
+            st.error(f"❌ Date processing error: {e}")
     else:
-        st.info("⚠️ Date column (Open_Date / Date) not found in data.")
+        st.info("⚠️ Date column (Open_Date / Date) nahi mili.")
 
 # ════════════ TAB 6: RAW DATA ════════════
 with tab6:
@@ -362,7 +393,6 @@ with tab6:
     st.markdown(f"**Showing {len(filtered_df):,} of {len(df):,} rows**")
     st.dataframe(filtered_df, use_container_width=True, height=500)
 
-    # Download button
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         filtered_df.to_excel(writer, index=False, sheet_name='Data')
