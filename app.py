@@ -7,7 +7,6 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
 import io
 
 # ── PAGE CONFIG ──────────────────────────────────────────────
@@ -87,12 +86,12 @@ def get_col(df, *opts):
 with st.sidebar:
     st.markdown("## 🖥️ IT Helpdesk Analytics")
     st.markdown("---")
-    uploaded = st.file_uploader("📂 Excel File Upload Karein", type=["xlsx","xls"])
+    uploaded = st.file_uploader("📂 Excel File Upload Karein", type=["xlsx", "xls"])
     if uploaded:
         st.success(f"✅ {uploaded.name}")
     st.markdown("---")
     top_n = st.slider("Top N Results", 5, 30, 15)
-    theme = st.selectbox("Chart Theme", ["plotly_dark","plotly","ggplot2"])
+    theme = st.selectbox("Chart Theme", ["plotly_dark", "plotly", "ggplot2"])
 
 # ── WELCOME SCREEN ────────────────────────────────────────────
 if not uploaded:
@@ -130,7 +129,7 @@ except Exception as e:
     st.error(f"❌ Error: {e}")
     st.stop()
 
-# Detect columns
+# ── DETECT COLUMNS ────────────────────────────────────────────
 col_dept     = get_col(df, 'Customer_Department', 'Department')
 col_service  = get_col(df, 'Service_Type')
 col_main     = get_col(df, 'Main_Category')
@@ -163,18 +162,19 @@ tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
 # ════════════ TAB 1: OVERVIEW ════════════
 with tab1:
     st.markdown('<div class="section-header">📌 Key Metrics</div>', unsafe_allow_html=True)
-    c1,c2,c3,c4,c5 = st.columns(5)
+    c1, c2, c3, c4, c5 = st.columns(5)
     cards = [
-        (len(df), "Total Tickets"),
-        (df[col_dept].nunique() if col_dept else "N/A", "Departments"),
-        (df[col_main].nunique() if col_main else "N/A", "Issue Types"),
+        (len(df),                                               "Total Tickets"),
+        (df[col_dept].nunique()     if col_dept     else "N/A", "Departments"),
+        (df[col_main].nunique()     if col_main     else "N/A", "Issue Types"),
         (df[col_resolved].nunique() if col_resolved else "N/A", "Agents"),
-        (df[col_sub].nunique() if col_sub else "N/A", "Sub Categories"),
+        (df[col_sub].nunique()      if col_sub      else "N/A", "Sub Categories"),
     ]
-    for col_obj, (val, label) in zip([c1,c2,c3,c4,c5], cards):
+    for col_obj, (val, label) in zip([c1, c2, c3, c4, c5], cards):
         with col_obj:
+            display = f"{val:,}" if isinstance(val, int) else str(val)
             st.markdown(f"""<div class="metric-card">
-                <div class="metric-number">{val:,}" if isinstance(val,int) else val}</div>
+                <div class="metric-number">{display}</div>
                 <div class="metric-label">{label}</div>
             </div>""", unsafe_allow_html=True)
 
@@ -183,7 +183,7 @@ with tab1:
     with r1:
         if col_service:
             svc = df[col_service].value_counts().reset_index()
-            svc.columns = ['Service','Count']
+            svc.columns = ['Service', 'Count']
             fig = px.pie(svc, values='Count', names='Service',
                          title='⚙️ Service Type Distribution',
                          hole=0.45, template=theme)
@@ -192,7 +192,7 @@ with tab1:
     with r2:
         if col_priority:
             pri = df[col_priority].value_counts().reset_index()
-            pri.columns = ['Priority','Count']
+            pri.columns = ['Priority', 'Count']
             fig = px.pie(pri, values='Count', names='Priority',
                          title='🚨 Priority Distribution',
                          hole=0.45, template=theme,
@@ -200,7 +200,7 @@ with tab1:
             st.plotly_chart(fig, use_container_width=True)
         elif col_status:
             sta = df[col_status].value_counts().reset_index()
-            sta.columns = ['Status','Count']
+            sta.columns = ['Status', 'Count']
             fig = px.pie(sta, values='Count', names='Status',
                          title='📌 Status Distribution',
                          hole=0.45, template=theme)
@@ -211,22 +211,22 @@ with tab2:
     st.markdown('<div class="section-header">🔥 Top Issue Categories</div>', unsafe_allow_html=True)
     if col_main:
         d = df[col_main].value_counts().head(top_n).reset_index()
-        d.columns = ['Issue','Count']
+        d.columns = ['Issue', 'Count']
         fig = px.bar(d, x='Count', y='Issue', orientation='h',
                      title=f'Top {top_n} Main Issues', color='Count',
                      color_continuous_scale='Blues', template=theme, text='Count')
-        fig.update_layout(height=600, yaxis={'categoryorder':'total ascending'}, showlegend=False)
+        fig.update_layout(height=600, yaxis={'categoryorder': 'total ascending'}, showlegend=False)
         fig.update_traces(textposition='outside')
         st.plotly_chart(fig, use_container_width=True)
 
     st.markdown('<div class="section-header">📂 Sub Categories</div>', unsafe_allow_html=True)
     if col_sub:
         d2 = df[col_sub].value_counts().head(top_n).reset_index()
-        d2.columns = ['Sub Category','Count']
+        d2.columns = ['Sub Category', 'Count']
         fig2 = px.bar(d2, x='Count', y='Sub Category', orientation='h',
                       title=f'Top {top_n} Sub Categories', color='Count',
                       color_continuous_scale='Oranges', template=theme, text='Count')
-        fig2.update_layout(height=600, yaxis={'categoryorder':'total ascending'}, showlegend=False)
+        fig2.update_layout(height=600, yaxis={'categoryorder': 'total ascending'}, showlegend=False)
         fig2.update_traces(textposition='outside')
         st.plotly_chart(fig2, use_container_width=True)
 
@@ -244,10 +244,131 @@ with tab3:
     st.markdown('<div class="section-header">🏢 Department-wise Analysis</div>', unsafe_allow_html=True)
     if col_dept:
         d = df[col_dept].value_counts().head(top_n).reset_index()
-        d.columns = ['Department','Tickets']
+        d.columns = ['Department', 'Tickets']
         c1, c2 = st.columns(2)
         with c1:
             fig = px.bar(d, x='Tickets', y='Department', orientation='h',
                          title='Tickets by Department', color='Tickets',
                          color_continuous_scale='Teal', template=theme, text='Tickets')
-            fig.update_layout(height=500, yaxis={'
+            fig.update_layout(height=500, yaxis={'categoryorder': 'total ascending'}, showlegend=False)
+            fig.update_traces(textposition='outside')
+            st.plotly_chart(fig, use_container_width=True)
+        with c2:
+            fig2 = px.pie(d, values='Tickets', names='Department',
+                          title='Department Share', hole=0.4, template=theme)
+            fig2.update_traces(textposition='inside', textinfo='percent+label')
+            st.plotly_chart(fig2, use_container_width=True)
+
+        if col_main and col_dept:
+            st.markdown('<div class="section-header">🔥 Issues by Department</div>', unsafe_allow_html=True)
+            cross = df.groupby([col_dept, col_main]).size().reset_index(name='Count')
+            top_depts = d['Department'].head(10).tolist()
+            cross = cross[cross[col_dept].isin(top_depts)]
+            fig3 = px.bar(cross, x=col_dept, y='Count', color=col_main,
+                          title='Issue Type by Department', template=theme,
+                          barmode='stack')
+            fig3.update_layout(height=500, xaxis_tickangle=-30)
+            st.plotly_chart(fig3, use_container_width=True)
+    else:
+        st.info("⚠️ Department column not found in data.")
+
+# ════════════ TAB 4: AGENTS ════════════
+with tab4:
+    st.markdown('<div class="section-header">👨‍💻 Agent Performance</div>', unsafe_allow_html=True)
+    agent_col = col_resolved or col_assigned
+    if agent_col:
+        ag = df[agent_col].value_counts().head(top_n).reset_index()
+        ag.columns = ['Agent', 'Tickets']
+        c1, c2 = st.columns(2)
+        with c1:
+            fig = px.bar(ag, x='Tickets', y='Agent', orientation='h',
+                         title=f'Top {top_n} Agents by Tickets Resolved',
+                         color='Tickets', color_continuous_scale='Viridis',
+                         template=theme, text='Tickets')
+            fig.update_layout(height=500, yaxis={'categoryorder': 'total ascending'}, showlegend=False)
+            fig.update_traces(textposition='outside')
+            st.plotly_chart(fig, use_container_width=True)
+        with c2:
+            fig2 = px.pie(ag, values='Tickets', names='Agent',
+                          title='Agent Workload Share', hole=0.4, template=theme)
+            fig2.update_traces(textposition='inside', textinfo='percent+label')
+            st.plotly_chart(fig2, use_container_width=True)
+
+        if col_status and agent_col:
+            st.markdown('<div class="section-header">📊 Agent × Status Breakdown</div>', unsafe_allow_html=True)
+            top_agents = ag['Agent'].head(10).tolist()
+            ag_status = df[df[agent_col].isin(top_agents)].groupby(
+                [agent_col, col_status]).size().reset_index(name='Count')
+            fig3 = px.bar(ag_status, x=agent_col, y='Count', color=col_status,
+                          title='Agent Performance by Status', template=theme,
+                          barmode='group')
+            fig3.update_layout(height=450, xaxis_tickangle=-30)
+            st.plotly_chart(fig3, use_container_width=True)
+    else:
+        st.info("⚠️ Agent column (Assigned_To / Resolved_By) not found in data.")
+
+# ════════════ TAB 5: TRENDS ════════════
+with tab5:
+    st.markdown('<div class="section-header">📅 Monthly Ticket Trends</div>', unsafe_allow_html=True)
+    if col_date:
+        try:
+            df['_date'] = pd.to_datetime(df[col_date], errors='coerce')
+            df['_month'] = df['_date'].dt.to_period('M').astype(str)
+            monthly = df.groupby('_month').size().reset_index(name='Tickets')
+            monthly = monthly.sort_values('_month')
+
+            fig = px.line(monthly, x='_month', y='Tickets',
+                          title='Monthly Ticket Volume', template=theme,
+                          markers=True, line_shape='spline')
+            fig.update_layout(height=400, xaxis_title='Month', yaxis_title='Tickets',
+                               xaxis_tickangle=-45)
+            st.plotly_chart(fig, use_container_width=True)
+
+            # Bar chart overlay
+            fig2 = px.bar(monthly, x='_month', y='Tickets',
+                          title='Monthly Tickets (Bar)', template=theme,
+                          color='Tickets', color_continuous_scale='Blues', text='Tickets')
+            fig2.update_layout(height=400, xaxis_tickangle=-45)
+            fig2.update_traces(textposition='outside')
+            st.plotly_chart(fig2, use_container_width=True)
+
+            if col_main:
+                st.markdown('<div class="section-header">📈 Issue Category Trend</div>',
+                            unsafe_allow_html=True)
+                top_issues = df[col_main].value_counts().head(5).index.tolist()
+                trend_df = df[df[col_main].isin(top_issues)].groupby(
+                    ['_month', col_main]).size().reset_index(name='Count')
+                fig3 = px.line(trend_df, x='_month', y='Count', color=col_main,
+                               title='Top 5 Issue Trends Over Time',
+                               template=theme, markers=True)
+                fig3.update_layout(height=450, xaxis_tickangle=-45)
+                st.plotly_chart(fig3, use_container_width=True)
+        except Exception as e:
+            st.error(f"Date processing error: {e}")
+    else:
+        st.info("⚠️ Date column (Open_Date / Date) not found in data.")
+
+# ════════════ TAB 6: RAW DATA ════════════
+with tab6:
+    st.markdown('<div class="section-header">🗃️ Raw Data Explorer</div>', unsafe_allow_html=True)
+
+    search_term = st.text_input("🔍 Search in data", "")
+    if search_term:
+        mask = df.apply(lambda col: col.astype(str).str.contains(search_term, case=False, na=False))
+        filtered_df = df[mask.any(axis=1)]
+    else:
+        filtered_df = df
+
+    st.markdown(f"**Showing {len(filtered_df):,} of {len(df):,} rows**")
+    st.dataframe(filtered_df, use_container_width=True, height=500)
+
+    # Download button
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        filtered_df.to_excel(writer, index=False, sheet_name='Data')
+    st.download_button(
+        label="⬇️ Download Filtered Data as Excel",
+        data=output.getvalue(),
+        file_name="helpdesk_filtered.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
