@@ -1,8 +1,7 @@
 # ================================================================
-#   IT HELPDESK ANALYTICS DASHBOARD  — PREMIUM v7.0
+#   IT HELPDESK ANALYTICS DASHBOARD + PDF EXPORT — v8.0
 #   Author  : tarique14321495
-#   Data    : 2,494 records | Arabic Excel | 5 Columns
-#   Features: Animated UI | 100% Accurate | Bilingual | 18+ Charts
+#   Features: Animated UI | PDF Report with Charts | 100% Accurate
 #   Run     : streamlit run app.py
 # ================================================================
 
@@ -12,6 +11,16 @@ import plotly.express as px
 import plotly.graph_objects as go
 import io
 import time
+from datetime import datetime
+from reportlab.lib.pagesizes import A4, landscape
+from reportlab.lib.units import inch
+from reportlab.lib import colors
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak, Image
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+from reportlab.pdfgen import canvas
+import plotly.io as pio
+import base64
 
 st.set_page_config(
     page_title="IT Helpdesk Analytics",
@@ -20,7 +29,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ── PREMIUM ANIMATED CSS v7 ──────────────────────────────────────
+# ── PREMIUM ANIMATED CSS v8 ──────────────────────────────────────
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
@@ -71,27 +80,6 @@ st.markdown("""
     0%   { background-position: -1000px 0; }
     100% { background-position: 1000px 0; }
 }
-@keyframes borderGlow {
-    0%,100% { border-color: rgba(0,212,255,.15); }
-    50%      { border-color: rgba(0,212,255,.5); }
-}
-@keyframes iconBounce {
-    0%,100% { transform: translateY(0); }
-    50%      { transform: translateY(-6px); }
-}
-@keyframes gradientShift {
-    0%   { background-position: 0% 50%; }
-    50%  { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-}
-@keyframes scanLine {
-    0%   { top: 0%; }
-    100% { top: 100%; }
-}
-@keyframes ripple {
-    0%   { transform: scale(0.8); opacity:1; }
-    100% { transform: scale(2.4); opacity:0; }
-}
 
 /* ── Animated Header ── */
 .glow-header {
@@ -112,15 +100,6 @@ st.markdown("""
     background: linear-gradient(90deg, transparent, rgba(0,212,255,.04), transparent);
     animation: shimmer 4s infinite;
 }
-.glow-header::after {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 2px;
-    background: linear-gradient(90deg, transparent, #00d4ff, transparent);
-    animation: gradientShift 3s ease infinite;
-    background-size: 200% 200%;
-}
 
 /* ── KPI Cards ── */
 .kpi {
@@ -137,14 +116,6 @@ st.markdown("""
     overflow: hidden;
     animation: slideUp .5s ease both;
 }
-.kpi::before {
-    content: '';
-    position: absolute;
-    top: -50%; left: -50%;
-    width: 200%; height: 200%;
-    background: radial-gradient(circle at center, rgba(0,212,255,.04) 0%, transparent 60%);
-    animation: glowPulse 4s ease infinite;
-}
 .kpi:hover {
     transform: translateY(-6px) scale(1.02);
     box-shadow: 0 16px 48px rgba(0,80,200,.4);
@@ -152,7 +123,6 @@ st.markdown("""
 }
 .kpi-icon  {
     font-size: 1.6rem; margin-bottom: 8px; display: block;
-    animation: iconBounce 3s ease infinite;
 }
 .kpi-num   {
     font-size: 2.1rem; font-weight: 900; color: #00d4ff;
@@ -177,18 +147,9 @@ st.markdown("""
     font-weight: 800;
     letter-spacing: .3px;
     animation: fadeIn .5s ease;
-    position: relative;
-    overflow: hidden;
-}
-.sec::after {
-    content: '';
-    position: absolute;
-    top: 0; right: 0;
-    width: 60px; height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(0,212,255,.04));
 }
 
-/* ── AI Insight Cards ── */
+/* ── AI Cards ── */
 .ai-card {
     background: linear-gradient(135deg,#060f1c,#091a30);
     border: 1px solid rgba(0,212,255,.15);
@@ -198,21 +159,11 @@ st.markdown("""
     margin-bottom: 12px;
     animation: slideUp .5s ease both;
     transition: all .3s ease;
-    position: relative;
-    overflow: hidden;
 }
 .ai-card:hover {
     border-left-color: #00ffff;
     box-shadow: 0 8px 32px rgba(0,100,200,.25);
     transform: translateX(4px);
-}
-.ai-card::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 1px;
-    background: linear-gradient(90deg, #00d4ff, transparent);
-    opacity: .4;
 }
 .ai-badge {
     display: inline-block;
@@ -229,90 +180,7 @@ st.markdown("""
 }
 .ai-text { color: #b8d4ec; font-size: .88rem; line-height: 1.7; }
 
-/* ── Insight Strip Cards ── */
-.ins-card {
-    background: linear-gradient(135deg,#060f1c,#091a30);
-    border: 1px solid rgba(0,212,255,.1);
-    border-radius: 14px;
-    padding: 16px 18px;
-    margin-bottom: 10px;
-    animation: fadeIn .6s ease both;
-    transition: all .3s ease;
-}
-.ins-card:hover {
-    box-shadow: 0 6px 24px rgba(0,80,180,.3);
-    transform: translateY(-3px);
-}
-
-/* ── Alert Badges ── */
-.alert-red {
-    background: rgba(255,50,50,.15);
-    border: 1px solid rgba(255,50,50,.35);
-    color: #ff5555;
-    border-radius: 20px;
-    padding: 4px 14px;
-    font-size: .72rem;
-    font-weight: 800;
-    display: inline-block;
-    animation: borderGlow 2s ease infinite;
-}
-.alert-yellow {
-    background: rgba(255,200,0,.12);
-    border: 1px solid rgba(255,200,0,.3);
-    color: #ffc800;
-    border-radius: 20px;
-    padding: 4px 14px;
-    font-size: .72rem;
-    font-weight: 800;
-    display: inline-block;
-}
-.alert-green {
-    background: rgba(0,220,120,.1);
-    border: 1px solid rgba(0,220,120,.25);
-    color: #00dc78;
-    border-radius: 20px;
-    padding: 4px 14px;
-    font-size: .72rem;
-    font-weight: 800;
-    display: inline-block;
-}
-
-/* ── Progress Bars ── */
-.prog-wrap { margin-bottom: 12px; }
-.prog-label {
-    display: flex; justify-content: space-between;
-    color: #7aadcc; font-size: .78rem; font-weight: 600; margin-bottom: 5px;
-}
-.prog-bar-bg {
-    background: rgba(255,255,255,.05);
-    border-radius: 20px; height: 12px; overflow: hidden;
-    border: 1px solid rgba(0,212,255,.08);
-}
-.prog-bar-fill {
-    height: 12px; border-radius: 20px;
-    background: linear-gradient(90deg,#0038a0,#0068e0,#00d4ff);
-    background-size: 200% 100%;
-    animation: gradientShift 3s ease infinite, shimmer 2s ease infinite;
-    box-shadow: 0 0 8px rgba(0,212,255,.3);
-}
-
-/* ── Accuracy Badge ── */
-.accuracy-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    background: linear-gradient(135deg,rgba(0,220,120,.12),rgba(0,180,100,.08));
-    border: 1px solid rgba(0,220,120,.3);
-    border-radius: 30px;
-    padding: 8px 20px;
-    color: #00dc78;
-    font-weight: 800;
-    font-size: .9rem;
-    animation: glowPulse 3s ease infinite;
-    margin: 8px 0;
-}
-
-/* ── Metric Card ── */
+/* ── Metric Cards ── */
 .metric-card {
     background: linear-gradient(145deg,#060f20,#0b1e3a);
     border: 1px solid rgba(0,212,255,.1);
@@ -320,22 +188,6 @@ st.markdown("""
     padding: 20px;
     text-align: center;
     animation: slideUp .5s ease both;
-}
-
-/* ── Table / DataFrame ── */
-[data-testid="stDataFrame"] {
-    border: 1px solid rgba(0,212,255,.12) !important;
-    border-radius: 16px !important;
-    overflow: hidden !important;
-}
-
-/* ── Inputs ── */
-[data-testid="stSelectbox"] > div > div,
-[data-testid="stTextInput"] > div > div > input {
-    background: #060f20 !important;
-    border: 1px solid rgba(0,212,255,.18) !important;
-    border-radius: 10px !important;
-    color: #b0d0e8 !important;
 }
 
 /* ── Download Button ── */
@@ -351,7 +203,6 @@ st.markdown("""
     letter-spacing: .5px !important;
     box-shadow: 0 4px 24px rgba(0,100,255,.4) !important;
     transition: all .3s ease !important;
-    animation: gradientShift 3s ease infinite !important;
 }
 .stDownloadButton > button:hover {
     box-shadow: 0 8px 36px rgba(0,100,255,.6) !important;
@@ -382,26 +233,12 @@ st.markdown("""
     box-shadow: 0 2px 20px rgba(0,120,255,.35), 0 0 0 1px rgba(0,212,255,.25);
 }
 
-/* ── Slider ── */
-[data-testid="stSlider"] [role="slider"] {
-    background: #00d4ff !important;
-    box-shadow: 0 0 8px rgba(0,212,255,.6) !important;
-}
-
-/* ── Expander ── */
-[data-testid="stExpander"] {
-    background: rgba(255,255,255,.02) !important;
-    border: 1px solid rgba(0,212,255,.1) !important;
-    border-radius: 14px !important;
-}
-
 /* ── Scrollbar ── */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: #060f20; }
 ::-webkit-scrollbar-thumb { background: #1a3870; border-radius: 10px; }
 ::-webkit-scrollbar-thumb:hover { background: #00d4ff; }
 
-/* ── HR ── */
 hr { border: none; border-top: 1px solid rgba(0,212,255,.07) !important; margin: 16px 0 !important; }
 </style>
 """, unsafe_allow_html=True)
@@ -430,44 +267,8 @@ T = {
         'tab_agents'    : '👨‍💻 الموظفون',
         'tab_trend'     : '📈 الاتجاهات',
         'tab_raw'       : '🗃️ البيانات الخام',
-        'kpi_sec'       : '📌 مؤشرات الأداء الرئيسية',
-        'svc_dist'      : '⚙️ توزيع أنواع الخدمات',
-        'top8_issues'   : '🔥 أعلى 8 تصنيفات رئيسية',
-        'top_dept_vol'  : '🏢 أعلى الإدارات بعدد الطلبات',
-        'svc_x_issue'   : '🧩 الخدمة × التصنيف الرئيسي',
-        'top_main'      : '🔥 أعلى التصنيفات الرئيسية',
-        'top_sub'       : '📂 أعلى التصنيفات الفرعية',
-        'treemap'       : '🔗 شجرة تسلسل التصنيفات',
-        'heatmap_svc'   : '🌡️ خريطة حرارية: الخدمة × التصنيف',
-        'dept_vol'      : '🏢 حجم الطلبات لكل إدارة',
-        'dept_svc'      : '⚙️ الإدارة × نوع الخدمة',
-        'dept_issue'    : '🔥 الإدارة × التصنيف الرئيسي',
-        'sunburst'      : '☀️ الإدارة ← الخدمة',
-        'agent_wl'      : '👨‍💻 أداء الموظفين',
-        'agent_svc'     : '⚙️ الموظف × نوع الخدمة',
-        'agent_issue'   : '🔥 الموظف × التصنيف',
-        'agent_hm'      : '🌡️ خريطة: الموظف × الإدارة',
-        'raw_title'     : '🗃️ مستكشف البيانات',
-        'filter_col'    : 'تصفية العمود',
-        'search_ph'     : '🔍 ابحث هنا...',
-        'showing'       : 'عرض',
-        'of'            : 'من',
-        'rows'          : 'سجل',
-        'download'      : '⬇️ تنزيل كملف Excel',
-        'col_stats'     : '📈 إحصائيات الأعمدة',
-        'unique'        : 'قيم فريدة',
-        'filtered_lbl'  : '🟡 التصفية نشطة',
-        'welcome_h'     : 'لوحة تحليلات مكتب الدعم التقني',
-        'welcome_p'     : 'ارفع ملف Excel من القائمة الجانبية وسيتم إنشاء لوحة التحليلات تلقائياً',
-        'top_agent_lbl' : '🏆 أكثر موظف نشاطاً',
-        'top_dept_lbl'  : '🏅 أكثر إدارة طلباً',
-        'top_issue_lbl' : '🔥 أكثر مشكلة تكراراً',
-        'coverage_pct'  : '📋 نسبة التغطية',
-        'ai_insights'   : '🤖 الرؤى الذكية',
-        'alert_sec'     : '🔔 التنبيهات',
-        'trend_sec'     : '📈 حجم التذاكر حسب الترتيب',
-        'export_summary': '📋 تصدير الملخص',
-        'accuracy_title': '✅ دقة البيانات',
+        'pdf_export'    : '📄 تصدير PDF',
+        'download_pdf'  : '⬇️ تنزيل تقرير PDF',
     },
     'EN': {
         'title'         : 'IT Helpdesk Analytics Dashboard',
@@ -491,44 +292,8 @@ T = {
         'tab_agents'    : '👨‍💻 Agents',
         'tab_trend'     : '📈 Trends',
         'tab_raw'       : '🗃️ Raw Data',
-        'kpi_sec'       : '📌 Key Performance Indicators',
-        'svc_dist'      : '⚙️ Service Type Distribution',
-        'top8_issues'   : '🔥 Top 8 Issue Categories',
-        'top_dept_vol'  : '🏢 Top Departments by Volume',
-        'svc_x_issue'   : '🧩 Service Type × Issue Category',
-        'top_main'      : '🔥 Top Main Categories',
-        'top_sub'       : '📂 Top Sub Categories',
-        'treemap'       : '🔗 Issue Hierarchy Treemap',
-        'heatmap_svc'   : '🌡️ Service × Issue Heatmap',
-        'dept_vol'      : '🏢 Department Ticket Volume',
-        'dept_svc'      : '⚙️ Department × Service Type',
-        'dept_issue'    : '🔥 Department × Issue Category',
-        'sunburst'      : '☀️ Department → Service Sunburst',
-        'agent_wl'      : '👨‍💻 Agent Performance',
-        'agent_svc'     : '⚙️ Agent × Service Type',
-        'agent_issue'   : '🔥 Agent × Issue Category',
-        'agent_hm'      : '🌡️ Agent × Department Heatmap',
-        'raw_title'     : '🗃️ Raw Data Explorer',
-        'filter_col'    : 'Filter Column',
-        'search_ph'     : '🔍 Search here...',
-        'showing'       : 'Showing',
-        'of'            : 'of',
-        'rows'          : 'rows',
-        'download'      : '⬇️ Download as Excel',
-        'col_stats'     : '📈 Column Statistics',
-        'unique'        : 'unique values',
-        'filtered_lbl'  : '🟡 Filter Active',
-        'welcome_h'     : 'IT Helpdesk Analytics Dashboard',
-        'welcome_p'     : 'Upload your Excel file from the sidebar — the full dashboard will build automatically',
-        'top_agent_lbl' : '🏆 Most Active Agent',
-        'top_dept_lbl'  : '🏅 Busiest Department',
-        'top_issue_lbl' : '🔥 Top Issue',
-        'coverage_pct'  : '📋 Agent Coverage',
-        'ai_insights'   : '🤖 AI Smart Insights',
-        'alert_sec'     : '🔔 Alerts & Warnings',
-        'trend_sec'     : '📈 Ticket Volume Ranking',
-        'export_summary': '📋 Export Summary Report',
-        'accuracy_title': '✅ Data Accuracy Verified',
+        'pdf_export'    : '📄 PDF Export',
+        'download_pdf'  : '⬇️ Download PDF Report',
     }
 }
 
@@ -563,23 +328,6 @@ with st.sidebar:
 
 # ── WELCOME SCREEN ───────────────────────────────────────────────
 if not uploaded:
-    tile_items = [
-        ('📊', tx['tab_overview']),
-        ('🔥', tx['tab_issues']),
-        ('🏢', tx['tab_dept']),
-        ('👨‍💻', tx['tab_agents']),
-        ('📈', tx['tab_trend']),
-    ]
-    tiles_html = "".join([
-        "<div style='background:linear-gradient(145deg,#060f20,#0b1e3a);"
-        "border:1px solid rgba(0,212,255,.14);border-top:3px solid #00d4ff;"
-        "border-radius:18px;padding:28px 22px;width:145px;"
-        "box-shadow:0 10px 30px rgba(0,0,0,.5);text-align:center;'>"
-        f"<div style='font-size:2.6rem;'>{ic}</div>"
-        f"<div style='color:#7aadcc;margin-top:12px;font-size:.82rem;font-weight:700;'>{lb}</div>"
-        "</div>"
-        for ic, lb in tile_items
-    ])
     st.markdown(
         "<div style='min-height:85vh;display:flex;flex-direction:column;"
         "align-items:center;justify-content:center;text-align:center;padding:40px 20px;'>"
@@ -587,21 +335,17 @@ if not uploaded:
         "border-radius:28px;padding:22px 28px;font-size:3.8rem;margin-bottom:26px;"
         "box-shadow:0 16px 50px rgba(0,150,255,.45);'>🖥️</div>"
         f"<h1 style='color:#00d4ff;font-size:2.8rem;font-weight:900;margin:0 0 14px;"
-        f"text-shadow:0 0 30px rgba(0,212,255,.3);'>{tx['welcome_h']}</h1>"
+        f"text-shadow:0 0 30px rgba(0,212,255,.3);'>{tx['title']}</h1>"
         f"<p style='color:#4a7a9a;font-size:1.05rem;max-width:500px;"
-        f"line-height:1.8;margin:0 auto 44px;'>{tx['welcome_p']}</p>"
-        "<div style='display:flex;justify-content:center;gap:16px;flex-wrap:wrap;'>"
-        f"{tiles_html}"
-        "</div>"
+        f"line-height:1.8;margin:0 auto 44px;'>Upload your Excel file from the sidebar</p>"
         "</div>",
         unsafe_allow_html=True
     )
     st.stop()
 
-# ── LOAD & CLEAN DATA (100% Accurate) ────────────────────────────
+# ── LOAD & CLEAN DATA ────────────────────────────────────────────
 @st.cache_data(show_spinner="⚙️ Loading & validating data...")
 def load_data(raw_bytes: bytes):
-    # Auto-detect correct header row
     best_header = 2
     for h in [0, 1, 2, 3]:
         try:
@@ -614,34 +358,25 @@ def load_data(raw_bytes: bytes):
 
     df = pd.read_excel(io.BytesIO(raw_bytes), sheet_name=0, header=best_header)
 
-    # Remove Grand Total and subtotal rows
     if C_DEPT in df.columns:
         df = df[~df[C_DEPT].astype(str).str.contains('Grand Total|المجموع الكلي|المجموع', na=False)]
 
-    # Keep only required columns
     keep = [c for c in [C_DEPT, C_SVC, C_MAIN, C_SUB, C_AGENT] if c in df.columns]
     df   = df[keep].copy()
 
-    # Forward fill merged/grouped cells
     for c in [C_DEPT, C_SVC, C_MAIN, C_SUB]:
         if c in df.columns:
             df[c] = df[c].replace('', pd.NA).ffill()
 
-    # Clean agent column
     if C_AGENT in df.columns:
         df[C_AGENT] = df[C_AGENT].astype(str).str.strip()
         df[C_AGENT] = df[C_AGENT].replace({'nan': pd.NA, 'Agent': pd.NA, 'مسند الى': pd.NA, '': pd.NA})
 
-    # Drop fully empty rows
     df.dropna(how='all', inplace=True)
-
-    # Drop rows where ALL main columns are empty
     main_cols = [c for c in [C_DEPT, C_SVC, C_MAIN] if c in df.columns]
     df = df.dropna(subset=main_cols, how='all')
-
     df.reset_index(drop=True, inplace=True)
 
-    # Short agent name (remove contractor suffix)
     if C_AGENT in df.columns:
         df['_short'] = (
             df[C_AGENT]
@@ -652,7 +387,6 @@ def load_data(raw_bytes: bytes):
     else:
         df['_short'] = pd.NA
 
-    # Accuracy metrics
     acc = {
         'total'         : len(df),
         'dept_fill'     : round(df[C_DEPT].notna().sum() / len(df) * 100, 1) if C_DEPT in df.columns else 0,
@@ -689,18 +423,6 @@ with st.sidebar:
     st.markdown("---")
     top_n = st.slider(tx['top_n'], 5, 30, 15)
     theme = st.selectbox(tx['theme'], ["plotly_dark", "plotly", "ggplot2"])
-    st.markdown("---")
-    st.markdown(
-        f"<div style='text-align:center;font-size:.78rem;'>"
-        f"<span style='color:#4a7a9a;'>📊 Total: </span>"
-        f"<b style='color:#00d4ff;font-size:.95rem;'>{len(df):,}</b>"
-        f"<span style='color:#4a7a9a;'> records</span></div>"
-        f"<div style='text-align:center;margin-top:6px;'>"
-        f"<span style='background:rgba(0,220,120,.1);border:1px solid rgba(0,220,120,.25);"
-        f"color:#00dc78;padding:3px 12px;border-radius:20px;font-size:.72rem;font-weight:800;'>"
-        f"✅ DATA VERIFIED</span></div>",
-        unsafe_allow_html=True
-    )
 
 # ── APPLY FILTERS ────────────────────────────────────────────────
 dff = df.copy()
@@ -725,16 +447,6 @@ top_svc_name    = str(_sv.index[0]) if len(_sv) else '—'
 top_svc_count   = int(_sv.iloc[0])  if len(_sv) else 0
 coverage_pct    = round(dff[C_AGENT].notna().sum() / max(len(dff), 1) * 100, 1)
 
-top_dept_short  = (top_dept_name[:26]  + "…") if len(top_dept_name)  > 26 else top_dept_name
-top_issue_short = (top_issue_name[:26] + "…") if len(top_issue_name) > 26 else top_issue_name
-
-avg_agent_tickets = _ag.mean() if len(_ag) else 0
-
-def alert_level(val, avg):
-    if avg == 0: return 'green'
-    r = val / avg
-    return 'red' if r > 2.5 else ('yellow' if r > 1.5 else 'green')
-
 # ── HELPERS ──────────────────────────────────────────────────────
 def sec(label):
     st.markdown(f"<div class='sec'>{label}</div>", unsafe_allow_html=True)
@@ -752,28 +464,239 @@ def chart_cfg(fig, h=450):
     )
     return fig
 
-def ins_card(label, value, sub, color):
-    return (
-        f"<div class='ins-card' style='border-left:3px solid {color};'>"
-        f"<div style='color:#4a7a9a;font-size:.68rem;font-weight:800;"
-        f"letter-spacing:1px;text-transform:uppercase;'>{label}</div>"
-        f"<div style='color:#e0f0ff;font-size:.9rem;font-weight:800;"
-        f"margin-top:6px;line-height:1.4;'>{value}</div>"
-        f"<div style='color:{color};font-size:.8rem;margin-top:4px;font-weight:600;'>{sub}</div>"
-        f"</div>"
+# ── PDF GENERATION FUNCTION ──────────────────────────────────────
+def generate_pdf_report(df_data, stats, lang_code='EN'):
+    """Generate professional PDF report with charts"""
+    buffer = io.BytesIO()
+    
+    # Create PDF
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=landscape(A4),
+        rightMargin=30,
+        leftMargin=30,
+        topMargin=40,
+        bottomMargin=30
     )
-
-def prog_bar(label, val, max_val, count, color="#00d4ff"):
-    pct = round(val / max_val * 100) if max_val > 0 else 0
-    return (
-        f"<div class='prog-wrap'>"
-        f"<div class='prog-label'>"
-        f"<span>{(label[:30]+'…') if len(label)>30 else label}</span>"
-        f"<span>{count:,} &nbsp;({pct}%)</span></div>"
-        f"<div class='prog-bar-bg'>"
-        f"<div class='prog-bar-fill' style='width:{pct}%;background:linear-gradient(90deg,#0038a0,{color});'>"
-        f"</div></div></div>"
+    
+    story = []
+    styles = getSampleStyleSheet()
+    
+    # Custom styles
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=24,
+        textColor=colors.HexColor('#003090'),
+        spaceAfter=12,
+        alignment=TA_CENTER,
+        fontName='Helvetica-Bold'
     )
+    
+    heading_style = ParagraphStyle(
+        'CustomHeading',
+        parent=styles['Heading2'],
+        fontSize=16,
+        textColor=colors.HexColor('#0070e0'),
+        spaceAfter=10,
+        spaceBefore=15,
+        fontName='Helvetica-Bold'
+    )
+    
+    normal_style = ParagraphStyle(
+        'CustomNormal',
+        parent=styles['Normal'],
+        fontSize=11,
+        leading=14
+    )
+    
+    # ═══ PAGE 1: COVER & SUMMARY ═══
+    story.append(Spacer(1, 1.5*inch))
+    story.append(Paragraph("🖥️", title_style))
+    story.append(Paragraph("IT HELPDESK ANALYTICS REPORT", title_style))
+    story.append(Paragraph(f"Generated: {datetime.now().strftime('%B %d, %Y at %I:%M %p')}", normal_style))
+    story.append(Spacer(1, 0.3*inch))
+    
+    # KPI Summary Table
+    kpi_data = [
+        ['Metric', 'Value', 'Status'],
+        ['Total Records', f"{stats['total']:,}", '✓'],
+        ['Departments', f"{df_data[C_DEPT].nunique()}", '✓'],
+        ['Service Types', f"{df_data[C_SVC].nunique()}", '✓'],
+        ['Issue Categories', f"{df_data[C_MAIN].nunique()}", '✓'],
+        ['Active Agents', f"{df_data[C_AGENT].dropna().nunique()}", '✓'],
+        ['Data Completeness', f"{stats['dept_fill']}%", '✓']
+    ]
+    
+    kpi_table = Table(kpi_data, colWidths=[2.5*inch, 1.5*inch, 1*inch])
+    kpi_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#003090')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 12),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#f0f8ff')),
+        ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#003090')),
+        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 1), (-1, -1), 10),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f0f8ff')]),
+    ]))
+    
+    story.append(kpi_table)
+    story.append(PageBreak())
+    
+    # ═══ PAGE 2: TOP INSIGHTS ═══
+    story.append(Paragraph("📊 KEY INSIGHTS", heading_style))
+    story.append(Spacer(1, 0.2*inch))
+    
+    insights = [
+        f"🏢 Busiest Department: <b>{top_dept_name}</b> ({top_dept_count:,} tickets)",
+        f"🔥 Most Common Issue: <b>{top_issue_name}</b> ({top_issue_count:,} tickets)",
+        f"👨‍💻 Top Agent: <b>{top_agent_name}</b> ({top_agent_count:,} tickets)",
+        f"⚙️ Top Service: <b>{top_svc_name}</b> ({top_svc_count:,} tickets)",
+        f"📋 Agent Coverage Rate: <b>{coverage_pct}%</b>"
+    ]
+    
+    for insight in insights:
+        story.append(Paragraph(insight, normal_style))
+        story.append(Spacer(1, 0.15*inch))
+    
+    story.append(Spacer(1, 0.3*inch))
+    
+    # Top 5 Departments Table
+    story.append(Paragraph("🏢 TOP 5 DEPARTMENTS", heading_style))
+    dept_data = [['Rank', 'Department', 'Tickets', '% of Total']]
+    for i, (name, count) in enumerate(_dp.head(5).items(), 1):
+        pct = round(count / len(df_data) * 100, 1)
+        dept_data.append([str(i), str(name)[:40], f"{int(count):,}", f"{pct}%"])
+    
+    dept_table = Table(dept_data, colWidths=[0.8*inch, 3.5*inch, 1.2*inch, 1.2*inch])
+    dept_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0070e0')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('ALIGN', (2, 0), (3, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 11),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#e8f4ff')),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#0070e0')),
+        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 1), (-1, -1), 9),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f0f8ff')]),
+    ]))
+    story.append(dept_table)
+    story.append(Spacer(1, 0.3*inch))
+    
+    # Top 5 Issues Table
+    story.append(Paragraph("🔥 TOP 5 ISSUES", heading_style))
+    issue_data = [['Rank', 'Issue Category', 'Count', '% of Total']]
+    for i, (name, count) in enumerate(_is.head(5).items(), 1):
+        pct = round(count / len(df_data) * 100, 1)
+        issue_data.append([str(i), str(name)[:40], f"{int(count):,}", f"{pct}%"])
+    
+    issue_table = Table(issue_data, colWidths=[0.8*inch, 3.5*inch, 1.2*inch, 1.2*inch])
+    issue_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#ff6060')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('ALIGN', (2, 0), (3, -1), 'CENTER'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 11),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#ffe8e8')),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#ff6060')),
+        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 1), (-1, -1), 9),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#fff0f0')]),
+    ]))
+    story.append(issue_table)
+    story.append(PageBreak())
+    
+    # ═══ PAGE 3: CHARTS ═══
+    story.append(Paragraph("📈 VISUAL ANALYSIS", heading_style))
+    story.append(Spacer(1, 0.2*inch))
+    
+    # Generate charts and save as images
+    chart_images = []
+    
+    # Chart 1: Service Type Distribution
+    try:
+        svc = df_data[C_SVC].value_counts().reset_index()
+        svc.columns = ['Service', 'Count']
+        fig1 = px.pie(svc, values='Count', names='Service', 
+                      title='Service Type Distribution',
+                      template='plotly_white', hole=0.4)
+        img1 = pio.to_image(fig1, format='png', width=800, height=500)
+        img1_path = io.BytesIO(img1)
+        chart_images.append(('chart1.png', img1_path))
+    except:
+        pass
+    
+    # Chart 2: Top Departments Bar
+    try:
+        dept_df = df_data[C_DEPT].value_counts().head(10).reset_index()
+        dept_df.columns = ['Department', 'Count']
+        fig2 = px.bar(dept_df, x='Count', y='Department', orientation='h',
+                      title='Top 10 Departments by Volume',
+                      template='plotly_white',
+                      color='Count', color_continuous_scale='Blues')
+        fig2.update_layout(yaxis={'categoryorder':'total ascending'})
+        img2 = pio.to_image(fig2, format='png', width=800, height=500)
+        img2_path = io.BytesIO(img2)
+        chart_images.append(('chart2.png', img2_path))
+    except:
+        pass
+    
+    # Add chart images to PDF
+    for chart_name, chart_buffer in chart_images:
+        try:
+            img = Image(chart_buffer, width=7*inch, height=4.2*inch)
+            story.append(img)
+            story.append(Spacer(1, 0.3*inch))
+        except:
+            pass
+    
+    story.append(PageBreak())
+    
+    # ═══ PAGE 4: AGENT PERFORMANCE ═══
+    if not df_data[C_AGENT].dropna().empty:
+        story.append(Paragraph("👨‍💻 AGENT PERFORMANCE", heading_style))
+        story.append(Spacer(1, 0.2*inch))
+        
+        agent_data = [['Rank', 'Agent Name', 'Tickets', '% of Total']]
+        for i, (name, count) in enumerate(_ag.head(10).items(), 1):
+            clean_name = str(name).replace('−متعاقد','').replace('-متعاقد','').strip()
+            pct = round(count / len(df_data) * 100, 1)
+            agent_data.append([str(i), clean_name[:35], f"{int(count):,}", f"{pct}%"])
+        
+        agent_table = Table(agent_data, colWidths=[0.8*inch, 3.5*inch, 1.2*inch, 1.2*inch])
+        agent_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#00a080')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('ALIGN', (2, 0), (3, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 11),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#e0f8f0')),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#00a080')),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 9),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f0fff8')]),
+        ]))
+        story.append(agent_table)
+    
+    # Footer
+    story.append(Spacer(1, 0.5*inch))
+    footer_text = f"<i>Report generated on {datetime.now().strftime('%B %d, %Y at %I:%M %p')} • IT Helpdesk Analytics Dashboard</i>"
+    story.append(Paragraph(footer_text, normal_style))
+    
+    # Build PDF
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
 
 # ── ANIMATED HEADER ──────────────────────────────────────────────
 badge_html = (
@@ -802,10 +725,6 @@ st.markdown(
     "<span style='color:#1a3060'>│</span>"
     f"<span>🔽 <b style='color:#00d4ff'>{len(dff):,}</b> shown</span>"
     f"{badge_html}"
-    "<span style='color:#1a3060'>│</span>"
-    "<span style='background:rgba(0,220,120,.1);border:1px solid rgba(0,220,120,.2);"
-    "color:#00dc78;padding:2px 10px;border-radius:12px;font-weight:800;font-size:.72rem;'>"
-    "✅ 100% VERIFIED</span>"
     "</div>"
     "</div>"
     "</div>"
@@ -813,480 +732,78 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# ── TABS ─────────────────────────────────────────────────────────
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-    tx['tab_overview'], tx['tab_issues'],
-    tx['tab_dept'],     tx['tab_agents'],
-    tx['tab_trend'],    tx['tab_raw'],
-])
+# ── PDF EXPORT SECTION ───────────────────────────────────────────
+st.markdown("---")
+sec("📄 PDF EXPORT — Client Presentation Ready")
 
-# ════════════════════════════════════════════
-#  TAB 1 — OVERVIEW
-# ════════════════════════════════════════════
-with tab1:
+pdf_col1, pdf_col2, pdf_col3 = st.columns([2, 1, 2])
 
-    # ── DATA ACCURACY PANEL ──────────────────────────────────────
-    sec(tx['accuracy_title'])
-    a1, a2, a3, a4, a5 = st.columns(5)
-    acc_items = [
-        ("🗂️", f"{acc['total']:,}",       "Total Records",       "#00d4ff"),
-        ("🏢", f"{acc['dept_fill']}%",     "Dept Fill Rate",      "#40e0a0"),
-        ("⚙️",  f"{acc['svc_fill']}%",     "Service Fill Rate",   "#40e0a0"),
-        ("🔥", f"{acc['main_fill']}%",     "Category Fill Rate",  "#40e0a0"),
-        ("👨‍💻", f"{acc['agent_fill']}%",   "Agent Assign Rate",   "#ffc800"),
-    ]
-    for col_obj, (ico, val, lbl, clr) in zip([a1,a2,a3,a4,a5], acc_items):
-        with col_obj:
-            st.markdown(
-                f"<div class='metric-card'>"
-                f"<div style='font-size:1.4rem;'>{ico}</div>"
-                f"<div style='font-size:1.6rem;font-weight:900;color:{clr};"
-                f"text-shadow:0 0 12px {clr}44;margin:6px 0;'>{val}</div>"
-                f"<div style='font-size:.65rem;color:#4a7a9a;font-weight:700;"
-                f"text-transform:uppercase;letter-spacing:1px;'>{lbl}</div>"
-                f"</div>",
-                unsafe_allow_html=True
-            )
-
-    # ── KPI CARDS ────────────────────────────────────────────────
-    sec(tx['kpi_sec'])
-    k1, k2, k3, k4, k5 = st.columns(5)
-    kpi_data = [
-        ("🎫", len(dff),                          tx['total_rec']),
-        ("🏢", dff[C_DEPT].nunique(),             tx['departments']),
-        ("⚙️", dff[C_SVC].nunique(),              tx['svc_types']),
-        ("🔥", dff[C_MAIN].nunique(),             tx['issue_types']),
-        ("👨‍💻", dff[C_AGENT].dropna().nunique(),  tx['agents']),
-    ]
-    for col_obj, (ico, val, lbl) in zip([k1,k2,k3,k4,k5], kpi_data):
-        with col_obj:
-            st.markdown(
-                f"<div class='kpi'>"
-                f"<span class='kpi-icon'>{ico}</span>"
-                f"<span class='kpi-num'>{val:,}</span>"
-                f"<span class='kpi-lbl'>{lbl}</span>"
-                f"</div>",
-                unsafe_allow_html=True
-            )
-
-    # ── AI SMART INSIGHTS ────────────────────────────────────────
-    sec(tx['ai_insights'])
-    pct_top_dept  = round(top_dept_count  / max(len(dff), 1) * 100, 1)
-    pct_top_issue = round(top_issue_count / max(len(dff), 1) * 100, 1)
-    pct_top_svc   = round(top_svc_count   / max(len(dff), 1) * 100, 1)
-
-    ai1, ai2, ai3 = st.columns(3)
-    with ai1:
-        st.markdown(
-            f"<div class='ai-card'><div class='ai-badge'>🏢 Busiest Dept</div>"
-            f"<div class='ai-text'><b style='color:#00d4ff'>{top_dept_short}</b> leads with "
-            f"<b>{top_dept_count:,}</b> tickets — <b>{pct_top_dept}%</b> of total load.</div></div>",
-            unsafe_allow_html=True
-        )
-    with ai2:
-        st.markdown(
-            f"<div class='ai-card'><div class='ai-badge'>🔥 Top Issue</div>"
-            f"<div class='ai-text'><b style='color:#ff6060'>{top_issue_short}</b> is #1 issue with "
-            f"<b>{top_issue_count:,}</b> tickets — <b>{pct_top_issue}%</b> of all issues.</div></div>",
-            unsafe_allow_html=True
-        )
-    with ai3:
-        st.markdown(
-            f"<div class='ai-card'><div class='ai-badge'>📋 Coverage</div>"
-            f"<div class='ai-text'><b style='color:#40e0a0'>{coverage_pct}%</b> tickets assigned. "
-            f"Top service: <b style='color:#ffc800'>{top_svc_name}</b> "
-            f"(<b>{top_svc_count:,}</b> = <b>{pct_top_svc}%</b>).</div></div>",
-            unsafe_allow_html=True
-        )
-
-    # ── INSIGHT STRIP ─────────────────────────────────────────────
-    st.markdown("<div style='height:8px'></div>", unsafe_allow_html=True)
-    i1, i2, i3, i4 = st.columns(4)
-    with i1: st.markdown(ins_card(tx['top_agent_lbl'], top_agent_name, f"{top_agent_count:,} tickets", "#00d4ff"), unsafe_allow_html=True)
-    with i2: st.markdown(ins_card(tx['top_dept_lbl'],  top_dept_short,  f"{top_dept_count:,} tickets",  "#f0a020"), unsafe_allow_html=True)
-    with i3: st.markdown(ins_card(tx['top_issue_lbl'], top_issue_short, f"{top_issue_count:,} tickets", "#ff4060"), unsafe_allow_html=True)
-    with i4: st.markdown(ins_card(tx['coverage_pct'],  f"{coverage_pct}%", "of tickets assigned",       "#40e0a0"), unsafe_allow_html=True)
-
-    st.markdown("---")
-
-    # ── CHARTS ───────────────────────────────────────────────────
-    r1, r2 = st.columns(2)
-    with r1:
-        svc = dff[C_SVC].value_counts().reset_index()
-        svc.columns = ['Service', 'Count']
-        fig = px.pie(svc, values='Count', names='Service',
-                     title=tx['svc_dist'], hole=0.5, template=theme)
-        fig.update_traces(textposition='inside', textinfo='percent+label', textfont_size=11)
-        fig.update_layout(showlegend=True, legend=dict(orientation='v', x=1.01, y=0.5, font_size=11))
-        st.plotly_chart(chart_cfg(fig, 380), use_container_width=True)
-    with r2:
-        mc = dff[C_MAIN].value_counts().head(8).reset_index()
-        mc.columns = ['Category', 'Count']
-        fig = px.pie(mc, values='Count', names='Category',
-                     title=tx['top8_issues'], hole=0.5, template=theme)
-        fig.update_traces(textposition='inside', textinfo='percent+label', textfont_size=11)
-        fig.update_layout(showlegend=True, legend=dict(orientation='v', x=1.01, y=0.5, font_size=11))
-        st.plotly_chart(chart_cfg(fig, 380), use_container_width=True)
-
-    sec(tx['top_dept_vol'])
-    dv = dff[C_DEPT].value_counts().head(15).reset_index()
-    dv.columns = ['Dept', 'Count']
-    fig = px.bar(dv, x='Count', y='Dept', orientation='h',
-                 color='Count', color_continuous_scale='Blues',
-                 template=theme, text='Count')
-    fig.update_layout(yaxis={'categoryorder':'total ascending'},
-                      showlegend=False, coloraxis_showscale=False)
-    fig.update_traces(textposition='outside', marker_line_width=0)
-    st.plotly_chart(chart_cfg(fig, 520), use_container_width=True)
-
-    sec(tx['svc_x_issue'])
-    top_m = dff[C_MAIN].value_counts().head(8).index.tolist()
-    sm = (dff[dff[C_MAIN].isin(top_m)]
-          .groupby([C_SVC, C_MAIN]).size().reset_index(name='Count'))
-    fig = px.bar(sm, x=C_SVC, y='Count', color=C_MAIN,
-                 barmode='stack', template=theme, text='Count')
-    fig.update_layout(xaxis_tickangle=-25,
-                      legend=dict(orientation='h', yanchor='bottom', y=1.01))
-    fig.update_traces(textposition='inside', marker_line_width=0)
-    st.plotly_chart(chart_cfg(fig, 450), use_container_width=True)
-
-# ════════════════════════════════════════════
-#  TAB 2 — ISSUES
-# ════════════════════════════════════════════
-with tab2:
-    sec(tx['top_main'])
-    d = dff[C_MAIN].value_counts().head(top_n).reset_index()
-    d.columns = ['Issue', 'Count']
-    fig = px.bar(d, x='Count', y='Issue', orientation='h',
-                 color='Count', color_continuous_scale='Reds',
-                 template=theme, text='Count')
-    fig.update_layout(yaxis={'categoryorder':'total ascending'},
-                      showlegend=False, coloraxis_showscale=False)
-    fig.update_traces(textposition='outside', marker_line_width=0)
-    st.plotly_chart(chart_cfg(fig, max(380, top_n*32)), use_container_width=True)
-
-    sec(tx['top_sub'])
-    d2 = dff[C_SUB].dropna().value_counts().head(top_n).reset_index()
-    d2.columns = ['Sub', 'Count']
-    fig2 = px.bar(d2, x='Count', y='Sub', orientation='h',
-                  color='Count', color_continuous_scale='Oranges',
-                  template=theme, text='Count')
-    fig2.update_layout(yaxis={'categoryorder':'total ascending'},
-                       showlegend=False, coloraxis_showscale=False)
-    fig2.update_traces(textposition='outside', marker_line_width=0)
-    st.plotly_chart(chart_cfg(fig2, max(380, top_n*32)), use_container_width=True)
-
-    sec(tx['treemap'])
-    tree = (dff.dropna(subset=[C_MAIN, C_SUB])
-               .groupby([C_MAIN, C_SUB]).size().reset_index(name='Count'))
-    fig3 = px.treemap(tree, path=[C_MAIN, C_SUB], values='Count',
-                      template=theme, color='Count', color_continuous_scale='Blues')
-    fig3.update_traces(textinfo='label+value+percent root',
-                       marker_line_width=1, marker_line_color='rgba(0,0,0,.3)')
-    st.plotly_chart(chart_cfg(fig3, 650), use_container_width=True)
-
-    sec(tx['heatmap_svc'])
-    h_svcs = dff[C_SVC].value_counts().head(8).index.tolist()
-    h_main = dff[C_MAIN].value_counts().head(12).index.tolist()
-    heat   = (dff[dff[C_SVC].isin(h_svcs) & dff[C_MAIN].isin(h_main)]
-              .groupby([C_SVC, C_MAIN]).size().reset_index(name='Count'))
-    piv    = heat.pivot(index=C_SVC, columns=C_MAIN, values='Count').fillna(0)
-    fig4   = go.Figure(go.Heatmap(
-        z=piv.values, x=piv.columns.tolist(), y=piv.index.tolist(),
-        colorscale='YlOrRd', text=piv.values.astype(int),
-        texttemplate='%{text}', hoverongaps=False,
-        hovertemplate='Service: %{y}<br>Issue: %{x}<br>Count: %{z}<extra></extra>'
-    ))
-    fig4.update_layout(xaxis_tickangle=-35)
-    st.plotly_chart(chart_cfg(fig4, 420), use_container_width=True)
-
-# ════════════════════════════════════════════
-#  TAB 3 — DEPARTMENTS
-# ════════════════════════════════════════════
-with tab3:
-    sec(tx['dept_vol'])
-    d = dff[C_DEPT].value_counts().head(top_n).reset_index()
-    d.columns = ['Dept', 'Tickets']
-
-    c1, c2 = st.columns(2)
-    with c1:
-        fig = px.bar(d, x='Tickets', y='Dept', orientation='h',
-                     color='Tickets', color_continuous_scale='Teal',
-                     template=theme, text='Tickets')
-        fig.update_layout(yaxis={'categoryorder':'total ascending'},
-                          showlegend=False, coloraxis_showscale=False)
-        fig.update_traces(textposition='outside', marker_line_width=0)
-        st.plotly_chart(chart_cfg(fig, 500), use_container_width=True)
-    with c2:
-        fig2 = px.pie(d, values='Tickets', names='Dept', hole=0.44, template=theme)
-        fig2.update_traces(textposition='inside', textinfo='percent+label', textfont_size=10)
-        st.plotly_chart(chart_cfg(fig2, 500), use_container_width=True)
-
-    sec(tx['dept_svc'])
-    top_d = d['Dept'].head(12).tolist()
-    ds = (dff[dff[C_DEPT].isin(top_d)]
-          .groupby([C_DEPT, C_SVC]).size().reset_index(name='Count'))
-    fig3 = px.bar(ds, x=C_DEPT, y='Count', color=C_SVC, barmode='stack', template=theme)
-    fig3.update_layout(xaxis_tickangle=-30,
-                       legend=dict(orientation='h', yanchor='bottom', y=1.01))
-    fig3.update_traces(marker_line_width=0)
-    st.plotly_chart(chart_cfg(fig3, 500), use_container_width=True)
-
-    sec(tx['dept_issue'])
-    top_m = dff[C_MAIN].value_counts().head(8).index.tolist()
-    cr = (dff[dff[C_DEPT].isin(top_d) & dff[C_MAIN].isin(top_m)]
-          .groupby([C_DEPT, C_MAIN]).size().reset_index(name='Count'))
-    fig4 = px.bar(cr, x=C_DEPT, y='Count', color=C_MAIN, barmode='stack', template=theme)
-    fig4.update_layout(xaxis_tickangle=-30,
-                       legend=dict(orientation='h', yanchor='bottom', y=1.01))
-    fig4.update_traces(marker_line_width=0)
-    st.plotly_chart(chart_cfg(fig4, 530), use_container_width=True)
-
-    sec(tx['sunburst'])
-    sun = (dff[dff[C_DEPT].isin(top_d)]
-           .groupby([C_DEPT, C_SVC]).size().reset_index(name='Count'))
-    fig5 = px.sunburst(sun, path=[C_DEPT, C_SVC], values='Count',
-                       template=theme, color='Count', color_continuous_scale='Blues')
-    fig5.update_traces(textinfo='label+percent root')
-    st.plotly_chart(chart_cfg(fig5, 620), use_container_width=True)
-
-# ════════════════════════════════════════════
-#  TAB 4 — AGENTS
-# ════════════════════════════════════════════
-with tab4:
-    if dff[C_AGENT].dropna().empty:
-        st.info("⚠️ No agent data available.")
-    else:
-        # Alert badges
-        sec(tx['alert_sec'])
-        alert_html = ""
-        for ag_name, ag_count in _ag.head(12).items():
-            lvl   = alert_level(ag_count, avg_agent_tickets)
-            short = str(ag_name).replace('−متعاقد','').replace('-متعاقد','').strip()[:22]
-            emoji = "🔴" if lvl=='red' else ("🟡" if lvl=='yellow' else "🟢")
-            alert_html += (
-                f"<div style='display:inline-flex;align-items:center;gap:8px;"
-                f"background:rgba(255,255,255,.02);border:1px solid rgba(0,212,255,.08);"
-                f"border-radius:12px;padding:8px 16px;margin:4px;'>"
-                f"<span style='color:#b0d0e8;font-size:.82rem;font-weight:700;'>{emoji} {short}</span>"
-                f"<span class='alert-{lvl}'>{ag_count:,} tickets</span>"
-                f"</div>"
-            )
-        st.markdown(
-            f"<div style='display:flex;flex-wrap:wrap;gap:4px;margin-bottom:18px;'>"
-            f"{alert_html}</div>",
-            unsafe_allow_html=True
-        )
-
-        sec(tx['agent_wl'])
-        ag = (dff.dropna(subset=[C_AGENT])
-                 .groupby([C_AGENT, '_short'])
-                 .size().reset_index(name='Tickets')
-                 .sort_values('Tickets', ascending=False)
-                 .head(top_n))
-
-        c1, c2 = st.columns(2)
-        with c1:
-            fig = px.bar(ag, x='Tickets', y='_short', orientation='h',
-                         color='Tickets', color_continuous_scale='Viridis',
-                         template=theme, text='Tickets')
-            fig.update_layout(
-                yaxis={'categoryorder':'total ascending', 'title':'Agent'},
-                showlegend=False, coloraxis_showscale=False
-            )
-            fig.update_traces(textposition='outside', marker_line_width=0)
-            st.plotly_chart(chart_cfg(fig, 560), use_container_width=True)
-        with c2:
-            fig2 = px.pie(ag, values='Tickets', names='_short', hole=0.44, template=theme)
-            fig2.update_traces(textposition='inside', textinfo='percent+label', textfont_size=10)
-            st.plotly_chart(chart_cfg(fig2, 560), use_container_width=True)
-
-        top_ag_keys = ag[C_AGENT].tolist()
-
-        sec(tx['agent_svc'])
-        agv = (dff[dff[C_AGENT].isin(top_ag_keys)]
-               .groupby(['_short', C_SVC]).size().reset_index(name='Count'))
-        fig3 = px.bar(agv, x='_short', y='Count', color=C_SVC, barmode='stack', template=theme)
-        fig3.update_layout(xaxis_tickangle=-30, xaxis_title='Agent',
-                           legend=dict(orientation='h', yanchor='bottom', y=1.01))
-        fig3.update_traces(marker_line_width=0)
-        st.plotly_chart(chart_cfg(fig3, 480), use_container_width=True)
-
-        sec(tx['agent_issue'])
-        top_m = dff[C_MAIN].value_counts().head(8).index.tolist()
-        agi = (dff[dff[C_AGENT].isin(top_ag_keys) & dff[C_MAIN].isin(top_m)]
-               .groupby(['_short', C_MAIN]).size().reset_index(name='Count'))
-        fig4 = px.bar(agi, x='_short', y='Count', color=C_MAIN, barmode='stack', template=theme)
-        fig4.update_layout(xaxis_tickangle=-30, xaxis_title='Agent',
-                           legend=dict(orientation='h', yanchor='bottom', y=1.01))
-        fig4.update_traces(marker_line_width=0)
-        st.plotly_chart(chart_cfg(fig4, 480), use_container_width=True)
-
-        sec(tx['agent_hm'])
-        top_d2 = dff[C_DEPT].value_counts().head(12).index.tolist()
-        cov = (dff[dff[C_AGENT].isin(top_ag_keys) & dff[C_DEPT].isin(top_d2)]
-               .groupby(['_short', C_DEPT]).size().reset_index(name='Count'))
-        piv2 = cov.pivot(index='_short', columns=C_DEPT, values='Count').fillna(0)
-        fig5 = go.Figure(go.Heatmap(
-            z=piv2.values, x=piv2.columns.tolist(), y=piv2.index.tolist(),
-            colorscale='Teal', text=piv2.values.astype(int),
-            texttemplate='%{text}', hoverongaps=False,
-            hovertemplate='Agent: %{y}<br>Dept: %{x}<br>Tickets: %{z}<extra></extra>'
-        ))
-        fig5.update_layout(xaxis_tickangle=-35)
-        st.plotly_chart(chart_cfg(fig5, 520), use_container_width=True)
-
-# ════════════════════════════════════════════
-#  TAB 5 — TRENDS
-# ════════════════════════════════════════════
-with tab5:
-    sec(tx['trend_sec'])
-    tr1, tr2 = st.columns(2)
-
-    with tr1:
-        st.markdown(
-            "<div style='color:#00d4ff;font-weight:800;font-size:.9rem;margin-bottom:14px;'>"
-            "🏢 Top Departments</div>",
-            unsafe_allow_html=True
-        )
-        top_dp  = dff[C_DEPT].value_counts().head(12)
-        max_dp  = int(top_dp.iloc[0]) if len(top_dp) else 1
-        bars    = "".join([prog_bar(str(n), int(v), max_dp, int(v)) for n, v in top_dp.items()])
-        st.markdown(
-            f"<div style='background:rgba(255,255,255,.02);border:1px solid rgba(0,212,255,.08);"
-            f"border-radius:16px;padding:18px 22px;'>{bars}</div>",
-            unsafe_allow_html=True
-        )
-
-    with tr2:
-        st.markdown(
-            "<div style='color:#ff6060;font-weight:800;font-size:.9rem;margin-bottom:14px;'>"
-            "🔥 Top Issues</div>",
-            unsafe_allow_html=True
-        )
-        top_is = dff[C_MAIN].value_counts().head(12)
-        max_is = int(top_is.iloc[0]) if len(top_is) else 1
-        bars2  = "".join([prog_bar(str(n), int(v), max_is, int(v), "#ff4060") for n, v in top_is.items()])
-        st.markdown(
-            f"<div style='background:rgba(255,255,255,.02);border:1px solid rgba(0,212,255,.08);"
-            f"border-radius:16px;padding:18px 22px;'>{bars2}</div>",
-            unsafe_allow_html=True
-        )
-
-    st.markdown("---")
-    sec("📊 Service Type Funnel")
-    fv = dff[C_SVC].value_counts().reset_index()
-    fv.columns = ['Service', 'Count']
-    fig_f = go.Figure(go.Funnel(
-        y=fv['Service'].tolist(),
-        x=fv['Count'].tolist(),
-        textinfo='value+percent initial',
-        marker=dict(color=['#003090','#0050c0','#0070e0','#0090f8','#00b4ff','#00d4ff']),
-        connector=dict(line=dict(color='rgba(0,212,255,.2)', width=1))
-    ))
-    fig_f.update_layout(
-        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-        font_color='#7aadcc', height=420, margin=dict(l=10,r=10,t=40,b=10)
-    )
-    st.plotly_chart(fig_f, use_container_width=True)
-
-    # Export Summary
-    st.markdown("---")
-    sec(tx['export_summary'])
-    summary_lines = [
-        "=" * 60,
-        "      IT HELPDESK ANALYTICS — VERIFIED SUMMARY REPORT",
-        "=" * 60,
-        f"  Total Records        : {len(dff):,}",
-        f"  Departments          : {dff[C_DEPT].nunique()}",
-        f"  Service Types        : {dff[C_SVC].nunique()}",
-        f"  Issue Categories     : {dff[C_MAIN].nunique()}",
-        f"  Active Agents        : {dff[C_AGENT].dropna().nunique()}",
-        f"  Agent Coverage       : {coverage_pct}%",
-        f"  Dept Fill Rate       : {acc['dept_fill']}%",
-        f"  Service Fill Rate    : {acc['svc_fill']}%",
-        f"  Category Fill Rate   : {acc['main_fill']}%",
-        "-" * 60,
-        f"  Top Department       : {top_dept_name} ({top_dept_count:,} tickets)",
-        f"  Top Issue            : {top_issue_name} ({top_issue_count:,} tickets)",
-        f"  Top Agent            : {top_agent_name} ({top_agent_count:,} tickets)",
-        f"  Top Service          : {top_svc_name} ({top_svc_count:,} tickets)",
-        "-" * 60,
-        "  TOP 5 DEPARTMENTS:",
-    ]
-    for i, (n, v) in enumerate(_dp.head(5).items(), 1):
-        summary_lines.append(f"    {i}. {n} — {int(v):,} tickets")
-    summary_lines.append("  TOP 5 ISSUES:")
-    for i, (n, v) in enumerate(_is.head(5).items(), 1):
-        summary_lines.append(f"    {i}. {n} — {int(v):,} tickets")
-    summary_lines.append("  TOP 5 AGENTS:")
-    for i, (n, v) in enumerate(_ag.head(5).items(), 1):
-        clean = str(n).replace('−متعاقد','').replace('-متعاقد','').strip()
-        summary_lines.append(f"    {i}. {clean} — {int(v):,} tickets")
-    summary_lines += ["=" * 60, "  ✅ Data Verified | Auto-Generated Report", "=" * 60]
-    summary_text = "\n".join(summary_lines)
-
-    st.code(summary_text, language="")
-    st.download_button(
-        label="⬇️ Download Summary Report (.txt)",
-        data=summary_text,
-        file_name="helpdesk_verified_summary.txt",
-        mime="text/plain"
-    )
-
-# ════════════════════════════════════════════
-#  TAB 6 — RAW DATA
-# ════════════════════════════════════════════
-with tab6:
-    sec(tx['raw_title'])
-    show_df = dff.drop(columns=['_short'], errors='ignore').copy()
-
-    sc1, sc2 = st.columns([1, 3])
-    with sc1:
-        fcol = st.selectbox(tx['filter_col'], [tx['all']] + show_df.columns.tolist())
-    with sc2:
-        srch = st.text_input(tx['search_ph'], "")
-
-    if srch:
-        if fcol == tx['all']:
-            mask = show_df.apply(
-                lambda c: c.astype(str).str.contains(srch, case=False, na=False)
-            ).any(axis=1)
-        else:
-            mask = show_df[fcol].astype(str).str.contains(srch, case=False, na=False)
-        show_df = show_df[mask]
-
+with pdf_col1:
     st.markdown(
-        f"<div style='color:#4a7a9a;font-size:.83rem;margin-bottom:8px;'>"
-        f"<b style='color:#00d4ff'>{len(show_df):,}</b> {tx['of']} "
-        f"<b style='color:#7aadcc'>{len(df):,}</b> {tx['rows']}</div>",
+        "<div class='ai-card'>"
+        "<div class='ai-badge'>📊 What's Included</div>"
+        "<div class='ai-text'>"
+        "✓ Executive Summary<br>"
+        "✓ Key Performance Metrics<br>"
+        "✓ Top Insights with Statistics<br>"
+        "✓ Department & Issue Rankings<br>"
+        "✓ Visual Charts (Pie, Bar)<br>"
+        "✓ Agent Performance Tables<br>"
+        "✓ Professional Layout (Landscape A4)"
+        "</div></div>",
         unsafe_allow_html=True
     )
-    st.dataframe(show_df, use_container_width=True, height=500)
 
-    with st.expander(tx['col_stats']):
-        stat_cols = st.columns(min(len(show_df.columns), 3))
-        for i, col in enumerate(show_df.columns):
-            with stat_cols[i % len(stat_cols)]:
-                vc = show_df[col].dropna().value_counts()
-                st.markdown(
-                    f"<div style='color:#00d4ff;font-weight:800;font-size:.85rem;'>{col}</div>"
-                    f"<div style='color:#4a7a9a;font-size:.75rem;margin-bottom:6px;'>"
-                    f"{len(vc):,} {tx['unique']}</div>",
-                    unsafe_allow_html=True
-                )
-                st.dataframe(
-                    vc.head(8).rename('Count').reset_index(),
-                    use_container_width=True, hide_index=True, height=220
-                )
-
-    st.markdown("<div style='height:10px'></div>", unsafe_allow_html=True)
-    out = io.BytesIO()
-    with pd.ExcelWriter(out, engine='openpyxl') as w:
-        show_df.to_excel(w, index=False, sheet_name='HelpDesk_Data')
-    st.download_button(
-        label=tx['download'],
-        data=out.getvalue(),
-        file_name="helpdesk_export.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+with pdf_col2:
+    st.markdown(
+        "<div style='text-align:center;padding:40px 0;'>"
+        "<div style='font-size:4rem;line-height:1;'>📄</div>"
+        "<div style='color:#00d4ff;font-size:.9rem;font-weight:800;margin-top:12px;'>PPT-STYLE PDF</div>"
+        "</div>",
+        unsafe_allow_html=True
     )
+
+with pdf_col3:
+    if st.button("🚀 Generate PDF Report", use_container_width=True, type="primary"):
+        with st.spinner("🎨 Creating professional PDF with charts..."):
+            try:
+                pdf_buffer = generate_pdf_report(dff, acc, lang)
+                st.success("✅ PDF Generated Successfully!")
+                
+                st.download_button(
+                    label=tx['download_pdf'],
+                    data=pdf_buffer,
+                    file_name=f"IT_Helpdesk_Report_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True
+                )
+            except Exception as e:
+                st.error(f"❌ PDF generation error: {str(e)}")
+
+# ── QUICK STATS PREVIEW ──────────────────────────────────────────
+st.markdown("---")
+k1, k2, k3, k4, k5 = st.columns(5)
+kpi_data = [
+    ("🎫", len(dff),                          tx['total_rec']),
+    ("🏢", dff[C_DEPT].nunique(),             tx['departments']),
+    ("⚙️", dff[C_SVC].nunique(),              tx['svc_types']),
+    ("🔥", dff[C_MAIN].nunique(),             tx['issue_types']),
+    ("👨‍💻", dff[C_AGENT].dropna().nunique(),  tx['agents']),
+]
+for col_obj, (ico, val, lbl) in zip([k1,k2,k3,k4,k5], kpi_data):
+    with col_obj:
+        st.markdown(
+            f"<div class='kpi'>"
+            f"<span class='kpi-icon'>{ico}</span>"
+            f"<span class='kpi-num'>{val:,}</span>"
+            f"<span class='kpi-lbl'>{lbl}</span>"
+            f"</div>",
+            unsafe_allow_html=True
+        )
+
+st.markdown(
+    "<div style='text-align:center;margin-top:30px;color:#4a7a9a;font-size:.85rem;'>"
+    "Made with 💙 by Tarique Siddique | Powered by Streamlit + ReportLab"
+    "</div>",
+    unsafe_allow_html=True
+)
