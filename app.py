@@ -1,7 +1,7 @@
 # ================================================================
-#   IT HELPDESK ANALYTICS DASHBOARD + PDF EXPORT — v8.0
+#   IT HELPDESK ANALYTICS DASHBOARD + FULL PDF EXPORT — v9.0
 #   Author  : tarique14321495
-#   Features: Animated UI | PDF Report with Charts | 100% Accurate
+#   Features: Animated UI | Full PDF (EN+AR) | All Charts | Icons
 #   Run     : streamlit run app.py
 # ================================================================
 
@@ -18,9 +18,9 @@ from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
-from reportlab.pdfgen import canvas
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 import plotly.io as pio
-import base64
 
 st.set_page_config(
     page_title="IT Helpdesk Analytics",
@@ -29,13 +29,12 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ── PREMIUM ANIMATED CSS v8 ──────────────────────────────────────
+# ── PREMIUM ANIMATED CSS v9 ──────────────────────────────────────
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 *, *::before, *::after { font-family: 'Inter', sans-serif !important; box-sizing: border-box; }
 
-/* ── Background ── */
 .stApp { background: #020810 !important; }
 .main .block-container {
     background: #020810 !important;
@@ -43,7 +42,6 @@ st.markdown("""
     max-width: 100% !important;
 }
 
-/* ── Sidebar ── */
 [data-testid="stSidebar"] {
     background: linear-gradient(180deg,#030912 0%,#060f20 60%,#030912 100%) !important;
     border-right: 1px solid rgba(0,212,255,.15) !important;
@@ -51,10 +49,6 @@ st.markdown("""
 [data-testid="stSidebar"] label,
 [data-testid="stSidebar"] p,
 [data-testid="stSidebar"] span { color: #7aadcc !important; font-size: .83rem !important; }
-[data-testid="stSidebar"] h2,
-[data-testid="stSidebar"] h3  { color: #00d4ff !important; }
-
-/* ═══ ANIMATIONS ═══════════════════════════════════════════════ */
 
 @keyframes glowPulse {
     0%,100% { box-shadow: 0 10px 40px rgba(0,0,0,.6), 0 0 0px rgba(0,212,255,0); }
@@ -81,7 +75,6 @@ st.markdown("""
     100% { background-position: 1000px 0; }
 }
 
-/* ── Animated Header ── */
 .glow-header {
     animation: glowPulse 3s ease-in-out infinite, slideDown .6s ease;
     background: linear-gradient(135deg,#060f20 0%,#0a1e3a 50%,#040c1c 100%);
@@ -101,7 +94,6 @@ st.markdown("""
     animation: shimmer 4s infinite;
 }
 
-/* ── KPI Cards ── */
 .kpi {
     background: linear-gradient(145deg,#060f20,#0b1e3a);
     border: 1px solid rgba(0,212,255,.12);
@@ -121,9 +113,7 @@ st.markdown("""
     box-shadow: 0 16px 48px rgba(0,80,200,.4);
     border-top-color: #00ffff;
 }
-.kpi-icon  {
-    font-size: 1.6rem; margin-bottom: 8px; display: block;
-}
+.kpi-icon  { font-size: 1.6rem; margin-bottom: 8px; display: block; }
 .kpi-num   {
     font-size: 2.1rem; font-weight: 900; color: #00d4ff;
     line-height: 1; display: block;
@@ -135,7 +125,6 @@ st.markdown("""
     letter-spacing: 1.2px; text-transform: uppercase; font-weight: 700;
 }
 
-/* ── Section Labels ── */
 .sec {
     background: linear-gradient(90deg, rgba(0,120,255,.1) 0%, transparent 80%);
     border-left: 3px solid #00d4ff;
@@ -149,7 +138,6 @@ st.markdown("""
     animation: fadeIn .5s ease;
 }
 
-/* ── AI Cards ── */
 .ai-card {
     background: linear-gradient(135deg,#060f1c,#091a30);
     border: 1px solid rgba(0,212,255,.15);
@@ -180,7 +168,6 @@ st.markdown("""
 }
 .ai-text { color: #b8d4ec; font-size: .88rem; line-height: 1.7; }
 
-/* ── Metric Cards ── */
 .metric-card {
     background: linear-gradient(145deg,#060f20,#0b1e3a);
     border: 1px solid rgba(0,212,255,.1);
@@ -190,7 +177,35 @@ st.markdown("""
     animation: slideUp .5s ease both;
 }
 
-/* ── Download Button ── */
+/* PDF Download Icon Button */
+.pdf-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: linear-gradient(135deg,#c0392b,#e74c3c,#ff6b6b) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 16px !important;
+    padding: 14px 28px !important;
+    font-weight: 800 !important;
+    font-size: .95rem !important;
+    letter-spacing: .5px !important;
+    box-shadow: 0 6px 28px rgba(231,76,60,.5) !important;
+    transition: all .3s ease !important;
+    cursor: pointer !important;
+    text-decoration: none !important;
+}
+.pdf-icon-btn:hover {
+    box-shadow: 0 10px 40px rgba(231,76,60,.7) !important;
+    transform: translateY(-4px) scale(1.03) !important;
+}
+.pdf-icon-btn svg {
+    width: 22px;
+    height: 22px;
+    fill: currentColor;
+}
+
 .stDownloadButton > button {
     background: linear-gradient(135deg,#0038b0,#0070f0,#00aaff) !important;
     background-size: 200% 200% !important;
@@ -209,7 +224,6 @@ st.markdown("""
     transform: translateY(-3px) !important;
 }
 
-/* ── Tabs ── */
 .stTabs [data-baseweb="tab-list"] {
     background: rgba(255,255,255,.02);
     border: 1px solid rgba(0,212,255,.1);
@@ -233,7 +247,6 @@ st.markdown("""
     box-shadow: 0 2px 20px rgba(0,120,255,.35), 0 0 0 1px rgba(0,212,255,.25);
 }
 
-/* ── Scrollbar ── */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: #060f20; }
 ::-webkit-scrollbar-thumb { background: #1a3870; border-radius: 10px; }
@@ -267,8 +280,14 @@ T = {
         'tab_agents'    : '👨‍💻 الموظفون',
         'tab_trend'     : '📈 الاتجاهات',
         'tab_raw'       : '🗃️ البيانات الخام',
-        'pdf_export'    : '📄 تصدير PDF',
-        'download_pdf'  : '⬇️ تنزيل تقرير PDF',
+        'pdf_title'     : 'تصدير تقرير PDF',
+        'gen_en'        : 'إنشاء تقرير (English)',
+        'gen_ar'        : 'إنشاء تقرير (عربي)',
+        'pdf_cover'     : 'تقرير تحليل البيانات',
+        'pdf_gen'       : 'تم الإنشاء',
+        'pdf_dept'      : 'الإدارات',
+        'pdf_issues'    : 'المشكلات',
+        'pdf_agents'    : 'الموظفون',
     },
     'EN': {
         'title'         : 'IT Helpdesk Analytics Dashboard',
@@ -292,8 +311,14 @@ T = {
         'tab_agents'    : '👨‍💻 Agents',
         'tab_trend'     : '📈 Trends',
         'tab_raw'       : '🗃️ Raw Data',
-        'pdf_export'    : '📄 PDF Export',
-        'download_pdf'  : '⬇️ Download PDF Report',
+        'pdf_title'     : 'Export PDF Report',
+        'gen_en'        : 'Generate Report (English)',
+        'gen_ar'        : 'Generate Report (Arabic)',
+        'pdf_cover'     : 'Data Analytics Report',
+        'pdf_gen'       : 'Generated on',
+        'pdf_dept'      : 'Departments',
+        'pdf_issues'    : 'Issues',
+        'pdf_agents'    : 'Agents',
     }
 }
 
@@ -326,7 +351,6 @@ with st.sidebar:
     if uploaded:
         st.success(f"✅ {uploaded.name}")
 
-# ── WELCOME SCREEN ───────────────────────────────────────────────
 if not uploaded:
     st.markdown(
         "<div style='min-height:85vh;display:flex;flex-direction:column;"
@@ -424,14 +448,12 @@ with st.sidebar:
     top_n = st.slider(tx['top_n'], 5, 30, 15)
     theme = st.selectbox(tx['theme'], ["plotly_dark", "plotly", "ggplot2"])
 
-# ── APPLY FILTERS ────────────────────────────────────────────────
 dff = df.copy()
 if s_dep != ALL: dff = dff[dff[C_DEPT] == s_dep]
 if s_svc != ALL: dff = dff[dff[C_SVC]  == s_svc]
 if s_mn  != ALL: dff = dff[dff[C_MAIN] == s_mn]
 filtered = len(dff) < len(df)
 
-# ── PRE-COMPUTE ──────────────────────────────────────────────────
 _ag = dff[C_AGENT].dropna().value_counts()
 _dp = dff[C_DEPT].dropna().value_counts()
 _is = dff[C_MAIN].dropna().value_counts()
@@ -447,7 +469,6 @@ top_svc_name    = str(_sv.index[0]) if len(_sv) else '—'
 top_svc_count   = int(_sv.iloc[0])  if len(_sv) else 0
 coverage_pct    = round(dff[C_AGENT].notna().sum() / max(len(dff), 1) * 100, 1)
 
-# ── HELPERS ──────────────────────────────────────────────────────
 def sec(label):
     st.markdown(f"<div class='sec'>{label}</div>", unsafe_allow_html=True)
 
@@ -464,12 +485,15 @@ def chart_cfg(fig, h=450):
     )
     return fig
 
-# ── PDF GENERATION FUNCTION ──────────────────────────────────────
-def generate_pdf_report(df_data, stats, lang_code='EN'):
-    """Generate professional PDF report with charts"""
+# ── PDF GENERATION (EN + AR Support) ─────────────────────────────
+def generate_full_pdf(df_data, stats, pdf_lang='EN'):
+    """Generate complete PDF with all charts - EN or AR"""
     buffer = io.BytesIO()
+    tx_pdf = T[pdf_lang]
     
-    # Create PDF
+    # RTL support for Arabic
+    is_arabic = (pdf_lang == 'AR')
+    
     doc = SimpleDocTemplate(
         buffer,
         pagesize=landscape(A4),
@@ -482,218 +506,268 @@ def generate_pdf_report(df_data, stats, lang_code='EN'):
     story = []
     styles = getSampleStyleSheet()
     
-    # Custom styles
+    # Custom Styles
     title_style = ParagraphStyle(
         'CustomTitle',
         parent=styles['Heading1'],
-        fontSize=24,
+        fontSize=26,
         textColor=colors.HexColor('#003090'),
-        spaceAfter=12,
-        alignment=TA_CENTER,
-        fontName='Helvetica-Bold'
+        spaceAfter=14,
+        alignment=TA_CENTER if not is_arabic else TA_RIGHT,
+        fontName='Helvetica-Bold',
+        leading=32
     )
     
     heading_style = ParagraphStyle(
         'CustomHeading',
         parent=styles['Heading2'],
-        fontSize=16,
+        fontSize=18,
         textColor=colors.HexColor('#0070e0'),
-        spaceAfter=10,
-        spaceBefore=15,
-        fontName='Helvetica-Bold'
+        spaceAfter=12,
+        spaceBefore=18,
+        fontName='Helvetica-Bold',
+        alignment=TA_LEFT if not is_arabic else TA_RIGHT
     )
     
     normal_style = ParagraphStyle(
         'CustomNormal',
         parent=styles['Normal'],
         fontSize=11,
-        leading=14
+        leading=15,
+        alignment=TA_LEFT if not is_arabic else TA_RIGHT
     )
     
-    # ═══ PAGE 1: COVER & SUMMARY ═══
-    story.append(Spacer(1, 1.5*inch))
+    # ═══ PAGE 1: COVER ═══
+    story.append(Spacer(1, 1.2*inch))
     story.append(Paragraph("🖥️", title_style))
-    story.append(Paragraph("IT HELPDESK ANALYTICS REPORT", title_style))
-    story.append(Paragraph(f"Generated: {datetime.now().strftime('%B %d, %Y at %I:%M %p')}", normal_style))
-    story.append(Spacer(1, 0.3*inch))
+    story.append(Spacer(1, 0.2*inch))
     
-    # KPI Summary Table
+    report_title = "IT HELPDESK ANALYTICS" if pdf_lang == 'EN' else "تحليلات مكتب الدعم التقني"
+    story.append(Paragraph(f"<b>{report_title}</b>", title_style))
+    
+    date_str = datetime.now().strftime('%B %d, %Y at %I:%M %p')
+    gen_text = f"{tx_pdf['pdf_gen']}: {date_str}"
+    story.append(Paragraph(gen_text, normal_style))
+    story.append(Spacer(1, 0.4*inch))
+    
+    # Summary Box
     kpi_data = [
-        ['Metric', 'Value', 'Status'],
-        ['Total Records', f"{stats['total']:,}", '✓'],
-        ['Departments', f"{df_data[C_DEPT].nunique()}", '✓'],
-        ['Service Types', f"{df_data[C_SVC].nunique()}", '✓'],
-        ['Issue Categories', f"{df_data[C_MAIN].nunique()}", '✓'],
-        ['Active Agents', f"{df_data[C_AGENT].dropna().nunique()}", '✓'],
-        ['Data Completeness', f"{stats['dept_fill']}%", '✓']
+        ['Metric' if pdf_lang=='EN' else 'المقياس', 
+         'Value' if pdf_lang=='EN' else 'القيمة', 
+         'Status' if pdf_lang=='EN' else 'الحالة'],
+        [tx_pdf['total_rec'], f"{stats['total']:,}", '✓'],
+        [tx_pdf['departments'], f"{df_data[C_DEPT].nunique()}", '✓'],
+        [tx_pdf['svc_types'], f"{df_data[C_SVC].nunique()}", '✓'],
+        [tx_pdf['issue_types'], f"{df_data[C_MAIN].nunique()}", '✓'],
+        [tx_pdf['agents'], f"{df_data[C_AGENT].dropna().nunique()}", '✓'],
+        ['Data Quality' if pdf_lang=='EN' else 'جودة البيانات', 
+         f"{round((stats['dept_fill']+stats['svc_fill']+stats['main_fill'])/3,1)}%", '✓']
     ]
     
-    kpi_table = Table(kpi_data, colWidths=[2.5*inch, 1.5*inch, 1*inch])
+    kpi_table = Table(kpi_data, colWidths=[2.8*inch, 1.8*inch, 1*inch])
     kpi_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#003090')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 12),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('FONTSIZE', (0, 0), (-1, 0), 13),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 14),
+        ('TOPPADDING', (0, 0), (-1, 0), 14),
         ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#f0f8ff')),
-        ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#003090')),
+        ('GRID', (0, 0), (-1, -1), 1.2, colors.HexColor('#003090')),
         ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 1), (-1, -1), 10),
+        ('FONTSIZE', (0, 1), (-1, -1), 11),
         ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f0f8ff')]),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
     ]))
     
     story.append(kpi_table)
     story.append(PageBreak())
     
     # ═══ PAGE 2: TOP INSIGHTS ═══
-    story.append(Paragraph("📊 KEY INSIGHTS", heading_style))
-    story.append(Spacer(1, 0.2*inch))
+    story.append(Paragraph(f"📊 {'KEY INSIGHTS' if pdf_lang=='EN' else 'الرؤى الرئيسية'}", heading_style))
+    story.append(Spacer(1, 0.25*inch))
+    
+    top_dept_short = (top_dept_name[:35] + "...") if len(top_dept_name) > 35 else top_dept_name
+    top_issue_short = (top_issue_name[:35] + "...") if len(top_issue_name) > 35 else top_issue_name
     
     insights = [
-        f"🏢 Busiest Department: <b>{top_dept_name}</b> ({top_dept_count:,} tickets)",
-        f"🔥 Most Common Issue: <b>{top_issue_name}</b> ({top_issue_count:,} tickets)",
-        f"👨‍💻 Top Agent: <b>{top_agent_name}</b> ({top_agent_count:,} tickets)",
-        f"⚙️ Top Service: <b>{top_svc_name}</b> ({top_svc_count:,} tickets)",
-        f"📋 Agent Coverage Rate: <b>{coverage_pct}%</b>"
+        f"🏢 {'Busiest Department' if pdf_lang=='EN' else 'أكثر إدارة نشاطاً'}: <b>{top_dept_short}</b> ({top_dept_count:,} {'tickets' if pdf_lang=='EN' else 'تذكرة'})",
+        f"🔥 {'Most Common Issue' if pdf_lang=='EN' else 'أكثر مشكلة تكراراً'}: <b>{top_issue_short}</b> ({top_issue_count:,} {'occurrences' if pdf_lang=='EN' else 'مرة'})",
+        f"👨‍💻 {'Top Agent' if pdf_lang=='EN' else 'أكثر موظف نشاطاً'}: <b>{top_agent_name[:30]}</b> ({top_agent_count:,} {'tickets' if pdf_lang=='EN' else 'تذكرة'})",
+        f"⚙️ {'Top Service' if pdf_lang=='EN' else 'أكثر خدمة'}: <b>{top_svc_name[:30]}</b> ({top_svc_count:,})",
+        f"📋 {'Agent Coverage' if pdf_lang=='EN' else 'تغطية الموظفين'}: <b>{coverage_pct}%</b>"
     ]
     
     for insight in insights:
         story.append(Paragraph(insight, normal_style))
-        story.append(Spacer(1, 0.15*inch))
+        story.append(Spacer(1, 0.18*inch))
     
-    story.append(Spacer(1, 0.3*inch))
+    story.append(Spacer(1, 0.35*inch))
     
-    # Top 5 Departments Table
-    story.append(Paragraph("🏢 TOP 5 DEPARTMENTS", heading_style))
-    dept_data = [['Rank', 'Department', 'Tickets', '% of Total']]
-    for i, (name, count) in enumerate(_dp.head(5).items(), 1):
+    # Top 8 Departments
+    story.append(Paragraph(f"🏢 {'TOP 8 DEPARTMENTS' if pdf_lang=='EN' else 'أعلى 8 إدارات'}", heading_style))
+    dept_data = [[
+        'Rank' if pdf_lang=='EN' else 'الترتيب',
+        'Department' if pdf_lang=='EN' else 'الإدارة',
+        'Tickets' if pdf_lang=='EN' else 'التذاكر',
+        '% of Total' if pdf_lang=='EN' else '٪ من المجموع'
+    ]]
+    for i, (name, count) in enumerate(_dp.head(8).items(), 1):
         pct = round(count / len(df_data) * 100, 1)
-        dept_data.append([str(i), str(name)[:40], f"{int(count):,}", f"{pct}%"])
+        dept_data.append([str(i), str(name)[:45], f"{int(count):,}", f"{pct}%"])
     
-    dept_table = Table(dept_data, colWidths=[0.8*inch, 3.5*inch, 1.2*inch, 1.2*inch])
+    dept_table = Table(dept_data, colWidths=[0.8*inch, 3.8*inch, 1.2*inch, 1.2*inch])
     dept_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#0070e0')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
         ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
         ('ALIGN', (2, 0), (3, -1), 'CENTER'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 11),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+        ('FONTSIZE', (0, 0), (-1, 0), 12),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('TOPPADDING', (0, 0), (-1, 0), 12),
         ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#e8f4ff')),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#0070e0')),
+        ('GRID', (0, 0), (-1, -1), 0.8, colors.HexColor('#0070e0')),
         ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 1), (-1, -1), 9),
+        ('FONTSIZE', (0, 1), (-1, -1), 10),
         ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f0f8ff')]),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
     ]))
     story.append(dept_table)
-    story.append(Spacer(1, 0.3*inch))
+    story.append(Spacer(1, 0.35*inch))
     
-    # Top 5 Issues Table
-    story.append(Paragraph("🔥 TOP 5 ISSUES", heading_style))
-    issue_data = [['Rank', 'Issue Category', 'Count', '% of Total']]
-    for i, (name, count) in enumerate(_is.head(5).items(), 1):
+    # Top 8 Issues
+    story.append(Paragraph(f"🔥 {'TOP 8 ISSUES' if pdf_lang=='EN' else 'أعلى 8 مشكلات'}", heading_style))
+    issue_data = [[
+        'Rank' if pdf_lang=='EN' else 'الترتيب',
+        'Issue Category' if pdf_lang=='EN' else 'فئة المشكلة',
+        'Count' if pdf_lang=='EN' else 'العدد',
+        '% of Total' if pdf_lang=='EN' else '٪ من المجموع'
+    ]]
+    for i, (name, count) in enumerate(_is.head(8).items(), 1):
         pct = round(count / len(df_data) * 100, 1)
-        issue_data.append([str(i), str(name)[:40], f"{int(count):,}", f"{pct}%"])
+        issue_data.append([str(i), str(name)[:45], f"{int(count):,}", f"{pct}%"])
     
-    issue_table = Table(issue_data, colWidths=[0.8*inch, 3.5*inch, 1.2*inch, 1.2*inch])
+    issue_table = Table(issue_data, colWidths=[0.8*inch, 3.8*inch, 1.2*inch, 1.2*inch])
     issue_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#ff6060')),
         ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
         ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
         ('ALIGN', (2, 0), (3, -1), 'CENTER'),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (-1, 0), 11),
-        ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+        ('FONTSIZE', (0, 0), (-1, 0), 12),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('TOPPADDING', (0, 0), (-1, 0), 12),
         ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#ffe8e8')),
-        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#ff6060')),
+        ('GRID', (0, 0), (-1, -1), 0.8, colors.HexColor('#ff6060')),
         ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-        ('FONTSIZE', (0, 1), (-1, -1), 9),
+        ('FONTSIZE', (0, 1), (-1, -1), 10),
         ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#fff0f0')]),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
     ]))
     story.append(issue_table)
     story.append(PageBreak())
     
-    # ═══ PAGE 3: CHARTS ═══
-    story.append(Paragraph("📈 VISUAL ANALYSIS", heading_style))
-    story.append(Spacer(1, 0.2*inch))
+    # ═══ PAGE 3: VISUAL CHARTS ═══
+    story.append(Paragraph(f"📈 {'VISUAL ANALYSIS' if pdf_lang=='EN' else 'التحليل البصري'}", heading_style))
+    story.append(Spacer(1, 0.25*inch))
     
-    # Generate charts and save as images
-    chart_images = []
-    
-    # Chart 1: Service Type Distribution
+    # Chart 1: Service Distribution (Pie)
     try:
-        svc = df_data[C_SVC].value_counts().reset_index()
-        svc.columns = ['Service', 'Count']
-        fig1 = px.pie(svc, values='Count', names='Service', 
-                      title='Service Type Distribution',
-                      template='plotly_white', hole=0.4)
-        img1 = pio.to_image(fig1, format='png', width=800, height=500)
-        img1_path = io.BytesIO(img1)
-        chart_images.append(('chart1.png', img1_path))
-    except:
-        pass
+        svc_df = df_data[C_SVC].value_counts().reset_index()
+        svc_df.columns = ['Service', 'Count']
+        fig1 = px.pie(svc_df, values='Count', names='Service',
+                      title='Service Type Distribution' if pdf_lang=='EN' else 'توزيع أنواع الخدمات',
+                      template='plotly_white', hole=0.45)
+        fig1.update_traces(textposition='inside', textinfo='percent+label', textfont_size=11)
+        img1 = pio.to_image(fig1, format='png', width=900, height=480, scale=2)
+        img1_buf = io.BytesIO(img1)
+        story.append(Image(img1_buf, width=7*inch, height=3.7*inch))
+        story.append(Spacer(1, 0.3*inch))
+    except Exception as e:
+        story.append(Paragraph(f"[Chart generation skipped: {str(e)[:50]}]", normal_style))
     
-    # Chart 2: Top Departments Bar
+    # Chart 2: Top Departments (Bar)
     try:
-        dept_df = df_data[C_DEPT].value_counts().head(10).reset_index()
+        dept_df = df_data[C_DEPT].value_counts().head(12).reset_index()
         dept_df.columns = ['Department', 'Count']
         fig2 = px.bar(dept_df, x='Count', y='Department', orientation='h',
-                      title='Top 10 Departments by Volume',
+                      title='Top 12 Departments' if pdf_lang=='EN' else 'أعلى 12 إدارة',
                       template='plotly_white',
-                      color='Count', color_continuous_scale='Blues')
-        fig2.update_layout(yaxis={'categoryorder':'total ascending'})
-        img2 = pio.to_image(fig2, format='png', width=800, height=500)
-        img2_path = io.BytesIO(img2)
-        chart_images.append(('chart2.png', img2_path))
-    except:
-        pass
-    
-    # Add chart images to PDF
-    for chart_name, chart_buffer in chart_images:
-        try:
-            img = Image(chart_buffer, width=7*inch, height=4.2*inch)
-            story.append(img)
-            story.append(Spacer(1, 0.3*inch))
-        except:
-            pass
+                      color='Count', color_continuous_scale='Blues', text='Count')
+        fig2.update_layout(yaxis={'categoryorder':'total ascending'}, showlegend=False)
+        fig2.update_traces(textposition='outside')
+        img2 = pio.to_image(fig2, format='png', width=900, height=550, scale=2)
+        img2_buf = io.BytesIO(img2)
+        story.append(Image(img2_buf, width=7*inch, height=4.2*inch))
+    except Exception as e:
+        story.append(Paragraph(f"[Chart generation skipped]", normal_style))
     
     story.append(PageBreak())
     
     # ═══ PAGE 4: AGENT PERFORMANCE ═══
     if not df_data[C_AGENT].dropna().empty:
-        story.append(Paragraph("👨‍💻 AGENT PERFORMANCE", heading_style))
-        story.append(Spacer(1, 0.2*inch))
+        story.append(Paragraph(f"👨‍💻 {'AGENT PERFORMANCE' if pdf_lang=='EN' else 'أداء الموظفين'}", heading_style))
+        story.append(Spacer(1, 0.25*inch))
         
-        agent_data = [['Rank', 'Agent Name', 'Tickets', '% of Total']]
-        for i, (name, count) in enumerate(_ag.head(10).items(), 1):
+        agent_data = [[
+            'Rank' if pdf_lang=='EN' else 'الترتيب',
+            'Agent Name' if pdf_lang=='EN' else 'اسم الموظف',
+            'Tickets' if pdf_lang=='EN' else 'التذاكر',
+            '% of Total' if pdf_lang=='EN' else '٪ من المجموع'
+        ]]
+        for i, (name, count) in enumerate(_ag.head(12).items(), 1):
             clean_name = str(name).replace('−متعاقد','').replace('-متعاقد','').strip()
             pct = round(count / len(df_data) * 100, 1)
-            agent_data.append([str(i), clean_name[:35], f"{int(count):,}", f"{pct}%"])
+            agent_data.append([str(i), clean_name[:40], f"{int(count):,}", f"{pct}%"])
         
-        agent_table = Table(agent_data, colWidths=[0.8*inch, 3.5*inch, 1.2*inch, 1.2*inch])
+        agent_table = Table(agent_data, colWidths=[0.8*inch, 3.8*inch, 1.2*inch, 1.2*inch])
         agent_table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#00a080')),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
             ('ALIGN', (2, 0), (3, -1), 'CENTER'),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 11),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+            ('FONTSIZE', (0, 0), (-1, 0), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('TOPPADDING', (0, 0), (-1, 0), 12),
             ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#e0f8f0')),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#00a080')),
+            ('GRID', (0, 0), (-1, -1), 0.8, colors.HexColor('#00a080')),
             ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 1), (-1, -1), 9),
+            ('FONTSIZE', (0, 1), (-1, -1), 10),
             ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f0fff8')]),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ]))
         story.append(agent_table)
+        story.append(Spacer(1, 0.4*inch))
+        
+        # Agent Performance Chart
+        try:
+            ag_df = (df_data.dropna(subset=[C_AGENT])
+                            .groupby([C_AGENT, '_short'])
+                            .size().reset_index(name='Tickets')
+                            .sort_values('Tickets', ascending=False)
+                            .head(10))
+            
+            fig3 = px.bar(ag_df, x='Tickets', y='_short', orientation='h',
+                          title='Top 10 Agents Performance' if pdf_lang=='EN' else 'أداء أفضل 10 موظفين',
+                          template='plotly_white',
+                          color='Tickets', color_continuous_scale='Teal', text='Tickets')
+            fig3.update_layout(yaxis={'categoryorder':'total ascending', 'title':'Agent'},
+                               showlegend=False)
+            fig3.update_traces(textposition='outside')
+            img3 = pio.to_image(fig3, format='png', width=900, height=500, scale=2)
+            img3_buf = io.BytesIO(img3)
+            story.append(Image(img3_buf, width=7*inch, height=3.8*inch))
+        except:
+            pass
     
     # Footer
     story.append(Spacer(1, 0.5*inch))
-    footer_text = f"<i>Report generated on {datetime.now().strftime('%B %d, %Y at %I:%M %p')} • IT Helpdesk Analytics Dashboard</i>"
+    footer_text = f"<i>{'Report generated on' if pdf_lang=='EN' else 'تم إنشاء التقرير في'} {datetime.now().strftime('%B %d, %Y at %I:%M %p')}</i>"
     story.append(Paragraph(footer_text, normal_style))
     
-    # Build PDF
     doc.build(story)
     buffer.seek(0)
     return buffer
@@ -732,55 +806,77 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# ── PDF EXPORT SECTION ───────────────────────────────────────────
+# ── PDF EXPORT WITH ICON BUTTONS ─────────────────────────────────
 st.markdown("---")
-sec("📄 PDF EXPORT — Client Presentation Ready")
+sec(f"📄 {tx['pdf_title']} — EN + AR Support")
 
-pdf_col1, pdf_col2, pdf_col3 = st.columns([2, 1, 2])
+pdf1, pdf2, pdf3 = st.columns([2, 1, 2])
 
-with pdf_col1:
+with pdf1:
     st.markdown(
         "<div class='ai-card'>"
         "<div class='ai-badge'>📊 What's Included</div>"
         "<div class='ai-text'>"
-        "✓ Executive Summary<br>"
-        "✓ Key Performance Metrics<br>"
-        "✓ Top Insights with Statistics<br>"
-        "✓ Department & Issue Rankings<br>"
+        "✓ Executive Summary (4 pages)<br>"
+        "✓ KPI Metrics Table<br>"
+        "✓ Top 8 Departments & Issues<br>"
         "✓ Visual Charts (Pie, Bar)<br>"
-        "✓ Agent Performance Tables<br>"
-        "✓ Professional Layout (Landscape A4)"
+        "✓ Top 12 Agents Performance<br>"
+        "✓ Professional Landscape A4<br>"
+        "✓ Arabic Names Supported<br>"
+        "✓ Both EN & AR Languages"
         "</div></div>",
         unsafe_allow_html=True
     )
 
-with pdf_col2:
+with pdf2:
     st.markdown(
-        "<div style='text-align:center;padding:40px 0;'>"
-        "<div style='font-size:4rem;line-height:1;'>📄</div>"
-        "<div style='color:#00d4ff;font-size:.9rem;font-weight:800;margin-top:12px;'>PPT-STYLE PDF</div>"
+        "<div style='text-align:center;padding:50px 0;'>"
+        "<div style='font-size:5rem;line-height:1;'>📄</div>"
+        "<div style='color:#00d4ff;font-size:1rem;font-weight:800;margin-top:16px;'>PPT-STYLE</div>"
+        "<div style='color:#00d4ff;font-size:1rem;font-weight:800;'>PDF REPORT</div>"
         "</div>",
         unsafe_allow_html=True
     )
 
-with pdf_col3:
-    if st.button("🚀 Generate PDF Report", use_container_width=True, type="primary"):
-        with st.spinner("🎨 Creating professional PDF with charts..."):
+with pdf3:
+    # English PDF Button
+    if st.button("📥 Generate English PDF", use_container_width=True, type="primary", key="en_pdf"):
+        with st.spinner("🎨 Creating English PDF with charts..."):
             try:
-                pdf_buffer = generate_pdf_report(dff, acc, lang)
-                st.success("✅ PDF Generated Successfully!")
+                pdf_buffer = generate_full_pdf(dff, acc, 'EN')
+                st.success("✅ English PDF Generated!")
                 
                 st.download_button(
-                    label=tx['download_pdf'],
+                    label="⬇️ Download English Report",
                     data=pdf_buffer,
-                    file_name=f"IT_Helpdesk_Report_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
+                    file_name=f"IT_Helpdesk_EN_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
                     mime="application/pdf",
                     use_container_width=True
                 )
             except Exception as e:
-                st.error(f"❌ PDF generation error: {str(e)}")
+                st.error(f"❌ Error: {str(e)}")
+    
+    st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
+    
+    # Arabic PDF Button
+    if st.button("📥 إنشاء تقرير عربي (Arabic PDF)", use_container_width=True, type="secondary", key="ar_pdf"):
+        with st.spinner("🎨 Creating Arabic PDF with charts..."):
+            try:
+                pdf_buffer = generate_full_pdf(dff, acc, 'AR')
+                st.success("✅ تم إنشاء التقرير العربي!")
+                
+                st.download_button(
+                    label="⬇️ تنزيل التقرير العربي",
+                    data=pdf_buffer,
+                    file_name=f"IT_Helpdesk_AR_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True
+                )
+            except Exception as e:
+                st.error(f"❌ خطأ: {str(e)}")
 
-# ── QUICK STATS PREVIEW ──────────────────────────────────────────
+# ── KPI CARDS ────────────────────────────────────────────────────
 st.markdown("---")
 k1, k2, k3, k4, k5 = st.columns(5)
 kpi_data = [
@@ -802,8 +898,8 @@ for col_obj, (ico, val, lbl) in zip([k1,k2,k3,k4,k5], kpi_data):
         )
 
 st.markdown(
-    "<div style='text-align:center;margin-top:30px;color:#4a7a9a;font-size:.85rem;'>"
-    "Made with 💙 by Tarique Siddique | Powered by Streamlit + ReportLab"
+    "<div style='text-align:center;margin-top:40px;color:#4a7a9a;font-size:.88rem;'>"
+    "Made with 💙 by Tarique Siddique | Streamlit + ReportLab + Plotly"
     "</div>",
     unsafe_allow_html=True
 )
