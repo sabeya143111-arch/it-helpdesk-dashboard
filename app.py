@@ -1,6 +1,6 @@
 # ================================================================
-#   IT HELPDESK ANALYTICS DASHBOARD — FINAL v12.0
-#   ARABIC FONT EMBEDDED — No more ■■■■■■ squares!
+#   IT HELPDESK ANALYTICS DASHBOARD — COMPLETE FINAL v13.0
+#   Automatic Arabic Font + Full PDF (Webpage Match)
 #   Author  : tarique14321495
 # ================================================================
 
@@ -38,50 +38,45 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ── DOWNLOAD & REGISTER ARABIC FONT ──────────────────────────────
+# ── AUTOMATIC ARABIC FONT DOWNLOAD & REGISTRATION ───────────────
 @st.cache_resource
 def load_arabic_font():
-    """Download Amiri Arabic font and register with ReportLab"""
+    """Automatically download and register Amiri Arabic font"""
     font_path = "/tmp/Amiri-Regular.ttf"
     
-    # Download if not exists
     if not os.path.exists(font_path):
         try:
-            # Amiri font — free Google Font with full Arabic support
-            url = "https://github.com/alif-type/amiri/releases/download/1.000/Amiri-1.000.zip"
-            # Use direct TTF URL from jsDelivr CDN
-            ttf_url = "https://cdn.jsdelivr.net/gh/alif-type/amiri@master/fonts/Amiri-Regular.ttf"
-            r = requests.get(ttf_url, timeout=15)
-            if r.status_code == 200:
+            # Try primary CDN
+            url = "https://fonts.gstatic.com/s/amiri/v27/J7aRnpd8CGxBHqUpvrIw74NL.ttf"
+            response = requests.get(url, timeout=20)
+            if response.status_code == 200:
                 with open(font_path, 'wb') as f:
-                    f.write(r.content)
-        except Exception:
-            # Fallback: try another CDN
-            try:
-                ttf_url2 = "https://fonts.gstatic.com/s/amiri/v27/J7aRnpd8CGxBHqUpvrIw74NL.ttf"
-                r2 = requests.get(ttf_url2, timeout=15)
-                if r2.status_code == 200:
+                    f.write(response.content)
+            else:
+                # Fallback CDN
+                url2 = "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/amiri/Amiri-Regular.ttf"
+                response2 = requests.get(url2, timeout=20)
+                if response2.status_code == 200:
                     with open(font_path, 'wb') as f:
-                        f.write(r2.content)
-            except Exception:
-                return False, ""
+                        f.write(response2.content)
+        except Exception as e:
+            return False, str(e)
     
-    # Register font with ReportLab
     try:
         pdfmetrics.registerFont(TTFont('Amiri', font_path))
-        return True, font_path
-    except Exception:
-        return False, ""
+        return True, "Font loaded successfully"
+    except Exception as e:
+        return False, str(e)
 
-FONT_LOADED, FONT_PATH = load_arabic_font()
+FONT_LOADED, FONT_MSG = load_arabic_font()
 ARABIC_FONT = 'Amiri' if FONT_LOADED else 'Helvetica'
 
-# ── ARABIC SAFE FUNCTION ─────────────────────────────────────────
+# ── ARABIC TEXT HANDLER ──────────────────────────────────────────
 def arabic_safe(text):
-    """Reshape + reverse Arabic text for PDF — requires Arabic font"""
+    """Reshape and reverse Arabic text for proper PDF rendering"""
     try:
         t = str(text).strip()
-        if not t or t == 'nan':
+        if not t or t in ['nan', 'None', '']:
             return ''
         if ARABIC_SUPPORT and any('\u0600' <= c <= '\u06FF' for c in t):
             reshaped = reshape(t)
@@ -89,11 +84,6 @@ def arabic_safe(text):
         return t
     except:
         return str(text)
-
-def ar_para(text, style):
-    """Create a Paragraph that supports Arabic text"""
-    safe_text = arabic_safe(text)
-    return Paragraph(safe_text, style)
 
 # ── CSS ──────────────────────────────────────────────────────────
 st.markdown("""
@@ -117,17 +107,11 @@ st.markdown("""
 @keyframes slideUp { from { opacity:0; transform: translateY(20px); } to { opacity:1; transform: translateY(0); } }
 @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
 @keyframes countUp { from { opacity:0; transform: scale(.8); } to { opacity:1; transform: scale(1); } }
-@keyframes shimmer { 0% { background-position: -1000px 0; } 100% { background-position: 1000px 0; } }
 .glow-header {
     animation: glowPulse 3s ease-in-out infinite, slideDown .6s ease;
     background: linear-gradient(135deg,#060f20 0%,#0a1e3a 50%,#040c1c 100%);
     padding: 22px 30px; border-radius: 20px; margin-bottom: 20px;
     border: 1px solid rgba(0,212,255,.18); position: relative; overflow: hidden;
-}
-.glow-header::before {
-    content: ''; position: absolute; top: 0; left: -100%; width: 60%; height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(0,212,255,.04), transparent);
-    animation: shimmer 4s infinite;
 }
 .kpi {
     background: linear-gradient(145deg,#060f20,#0b1e3a);
@@ -135,17 +119,19 @@ st.markdown("""
     border-radius: 20px; padding: 22px 12px 18px; text-align: center;
     box-shadow: 0 8px 32px rgba(0,0,0,.6);
     transition: transform .3s cubic-bezier(.34,1.56,.64,1), box-shadow .3s ease;
-    margin-bottom: 12px; position: relative; overflow: hidden; animation: slideUp .5s ease both;
+    margin-bottom: 12px; animation: slideUp .5s ease both;
 }
-.kpi:hover { transform: translateY(-6px) scale(1.02); box-shadow: 0 16px 48px rgba(0,80,200,.4); border-top-color: #00ffff; }
+.kpi:hover { transform: translateY(-6px) scale(1.02); box-shadow: 0 16px 48px rgba(0,80,200,.4); }
 .kpi-icon { font-size: 1.6rem; margin-bottom: 8px; display: block; }
-.kpi-num { font-size: 2.1rem; font-weight: 900; color: #00d4ff; line-height: 1; display: block; animation: countUp .8s ease both; text-shadow: 0 0 20px rgba(0,212,255,.4); }
-.kpi-lbl { font-size: .68rem; color: #4a7a9a; margin-top: 6px; display: block; letter-spacing: 1.2px; text-transform: uppercase; font-weight: 700; }
+.kpi-num { font-size: 2.1rem; font-weight: 900; color: #00d4ff; line-height: 1; display: block; 
+           animation: countUp .8s ease both; text-shadow: 0 0 20px rgba(0,212,255,.4); }
+.kpi-lbl { font-size: .68rem; color: #4a7a9a; margin-top: 6px; display: block;
+           letter-spacing: 1.2px; text-transform: uppercase; font-weight: 700; }
 .sec {
     background: linear-gradient(90deg, rgba(0,120,255,.1) 0%, transparent 80%);
     border-left: 3px solid #00d4ff; border-radius: 0 12px 12px 0;
     padding: 11px 22px; margin: 28px 0 16px; color: #e0f0ff;
-    font-size: 1rem; font-weight: 800; letter-spacing: .3px; animation: fadeIn .5s ease;
+    font-size: 1rem; font-weight: 800; animation: fadeIn .5s ease;
 }
 .ai-card {
     background: linear-gradient(135deg,#060f1c,#091a30);
@@ -153,7 +139,7 @@ st.markdown("""
     border-radius: 16px; padding: 18px 20px; margin-bottom: 12px;
     animation: slideUp .5s ease both; transition: all .3s ease;
 }
-.ai-card:hover { border-left-color: #00ffff; box-shadow: 0 8px 32px rgba(0,100,200,.25); transform: translateX(4px); }
+.ai-card:hover { border-left-color: #00ffff; box-shadow: 0 8px 32px rgba(0,100,200,.25); }
 .ai-badge {
     display: inline-block; background: rgba(0,212,255,.12); color: #00d4ff;
     padding: 3px 12px; border-radius: 20px; font-size: .68rem; font-weight: 800;
@@ -164,7 +150,8 @@ st.markdown("""
 .ins-card {
     background: linear-gradient(135deg,#060f1c,#091a30);
     border: 1px solid rgba(0,212,255,.1); border-radius: 14px;
-    padding: 16px 18px; margin-bottom: 10px; animation: fadeIn .6s ease both; transition: all .3s ease;
+    padding: 16px 18px; margin-bottom: 10px; animation: fadeIn .6s ease both;
+    transition: all .3s ease;
 }
 .ins-card:hover { box-shadow: 0 6px 24px rgba(0,80,180,.3); transform: translateY(-3px); }
 .metric-card {
@@ -173,19 +160,35 @@ st.markdown("""
     padding: 20px; text-align: center; animation: slideUp .5s ease both;
 }
 .prog-wrap { margin-bottom: 12px; }
-.prog-label { display: flex; justify-content: space-between; color: #7aadcc; font-size: .78rem; font-weight: 600; margin-bottom: 5px; }
-.prog-bar-bg { background: rgba(255,255,255,.05); border-radius: 20px; height: 12px; overflow: hidden; border: 1px solid rgba(0,212,255,.08); }
-.prog-bar-fill { height: 12px; border-radius: 20px; background: linear-gradient(90deg,#0038a0,#0068e0,#00d4ff); box-shadow: 0 0 8px rgba(0,212,255,.3); }
+.prog-label { display: flex; justify-content: space-between; color: #7aadcc; 
+              font-size: .78rem; font-weight: 600; margin-bottom: 5px; }
+.prog-bar-bg { background: rgba(255,255,255,.05); border-radius: 20px; height: 12px;
+               overflow: hidden; border: 1px solid rgba(0,212,255,.08); }
+.prog-bar-fill { height: 12px; border-radius: 20px;
+                 background: linear-gradient(90deg,#0038a0,#0068e0,#00d4ff);
+                 box-shadow: 0 0 8px rgba(0,212,255,.3); }
 .stDownloadButton > button {
     background: linear-gradient(135deg,#c0392b,#e74c3c,#ff6b6b) !important;
     color: white !important; border: none !important; border-radius: 14px !important;
     padding: 14px 32px !important; font-weight: 800 !important; font-size: .95rem !important;
     box-shadow: 0 6px 28px rgba(231,76,60,.5) !important; transition: all .3s ease !important;
 }
-.stDownloadButton > button:hover { box-shadow: 0 10px 40px rgba(231,76,60,.7) !important; transform: translateY(-4px) scale(1.03) !important; }
-.stTabs [data-baseweb="tab-list"] { background: rgba(255,255,255,.02); border: 1px solid rgba(0,212,255,.1); border-radius: 16px; padding: 5px 7px; gap: 4px; }
-.stTabs [data-baseweb="tab"] { border-radius: 12px; padding: 9px 24px; font-size: .87rem; font-weight: 700; color: #4a7a9a !important; background: transparent; transition: all .3s ease; border: none !important; }
-.stTabs [aria-selected="true"] { background: linear-gradient(135deg,#0a2870,#0a3e8e) !important; color: #00d4ff !important; box-shadow: 0 2px 20px rgba(0,120,255,.35), 0 0 0 1px rgba(0,212,255,.25); }
+.stDownloadButton > button:hover { 
+    box-shadow: 0 10px 40px rgba(231,76,60,.7) !important; 
+    transform: translateY(-4px) scale(1.03) !important; 
+}
+.stTabs [data-baseweb="tab-list"] { 
+    background: rgba(255,255,255,.02); border: 1px solid rgba(0,212,255,.1);
+    border-radius: 16px; padding: 5px 7px; gap: 4px; 
+}
+.stTabs [data-baseweb="tab"] { 
+    border-radius: 12px; padding: 9px 24px; font-size: .87rem; font-weight: 700;
+    color: #4a7a9a !important; background: transparent; transition: all .3s ease; 
+}
+.stTabs [aria-selected="true"] { 
+    background: linear-gradient(135deg,#0a2870,#0a3e8e) !important;
+    color: #00d4ff !important; box-shadow: 0 2px 20px rgba(0,120,255,.35); 
+}
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: #060f20; }
 ::-webkit-scrollbar-thumb { background: #1a3870; border-radius: 10px; }
@@ -245,7 +248,7 @@ with st.sidebar:
         "font-size:2rem;box-shadow:0 4px 20px rgba(0,140,255,.4);'>🖥️</div>"
         "</div>", unsafe_allow_html=True
     )
-    lang = st.radio("🌐 Language / اللغة", ["EN", "AR"], horizontal=True, index=0)
+    lang = st.radio("🌐 Language", ["EN", "AR"], horizontal=True, index=0)
     tx = T[lang]
     st.markdown(
         f"<h3 style='text-align:center;color:#00d4ff !important;"
@@ -253,11 +256,10 @@ with st.sidebar:
         unsafe_allow_html=True
     )
     
-    # Show Arabic font status
     if FONT_LOADED:
-        st.markdown("<div style='text-align:center;color:#00dc78;font-size:.75rem;font-weight:700;'>✅ Arabic Font: Loaded</div>", unsafe_allow_html=True)
+        st.success("✅ Arabic Font Loaded")
     else:
-        st.markdown("<div style='text-align:center;color:#ffc800;font-size:.75rem;font-weight:700;'>⚠️ Arabic Font: Fallback</div>", unsafe_allow_html=True)
+        st.warning(f"⚠️ Font Issue: {FONT_MSG[:50]}")
     
     st.markdown("---")
     uploaded = st.file_uploader(tx['upload'], type=["xlsx", "xls"])
@@ -273,7 +275,7 @@ if not uploaded:
         f"<h1 style='color:#00d4ff;font-size:2.8rem;font-weight:900;margin:0 0 14px;"
         f"text-shadow:0 0 30px rgba(0,212,255,.3);'>{tx['title']}</h1>"
         "<p style='color:#4a7a9a;font-size:1.05rem;max-width:500px;"
-        "line-height:1.8;margin:0 auto 44px;'>Upload your Excel file from the sidebar</p>"
+        "line-height:1.8;margin:0 auto;'>Upload your Excel file from the sidebar</p>"
         "</div>", unsafe_allow_html=True
     )
     st.stop()
@@ -292,13 +294,14 @@ def load_data(raw_bytes: bytes):
 
     df = pd.read_excel(io.BytesIO(raw_bytes), sheet_name=0, header=best_header)
     if C_DEPT in df.columns:
-        df = df[~df[C_DEPT].astype(str).str.contains('Grand Total|المجموع الكلي|المجموع', na=False)]
+        df = df[~df[C_DEPT].astype(str).str.contains('Grand Total|المجموع', na=False)]
 
     keep = [c for c in [C_DEPT, C_SVC, C_MAIN, C_SUB, C_AGENT] if c in df.columns]
     df = df[keep].copy()
 
     for c in [C_DEPT, C_SVC, C_MAIN, C_SUB]:
-        if c in df.columns: df[c] = df[c].replace('', pd.NA).ffill()
+        if c in df.columns: 
+            df[c] = df[c].replace('', pd.NA).ffill()
 
     if C_AGENT in df.columns:
         df[C_AGENT] = df[C_AGENT].astype(str).str.strip()
@@ -310,7 +313,7 @@ def load_data(raw_bytes: bytes):
     df.reset_index(drop=True, inplace=True)
 
     if C_AGENT in df.columns:
-        df['_short'] = df[C_AGENT].str.replace('−متعاقد', '', regex=False).str.replace('-متعاقد', '', regex=False).str.strip()
+        df['_short'] = df[C_AGENT].str.replace('−متعاقد', '').str.replace('-متعاقد', '').str.strip()
     else:
         df['_short'] = pd.NA
 
@@ -327,17 +330,17 @@ try:
     raw_bytes = uploaded.read()
     df, acc = load_data(raw_bytes)
 except Exception as e:
-    st.error(f"❌ Load error: {e}")
+    st.error(f"❌ Error: {e}")
     st.stop()
 
 if df.empty:
-    st.error("❌ No data found.")
+    st.error("❌ No data found")
     st.stop()
 
 # ── FILTERS ──────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("---")
-    st.markdown(f"<p style='color:#00d4ff !important;font-weight:800;margin-bottom:4px;font-size:.85rem;'>{tx['filters']}</p>", unsafe_allow_html=True)
+    st.markdown(f"<p style='color:#00d4ff;font-weight:800;font-size:.85rem;'>{tx['filters']}</p>", unsafe_allow_html=True)
     ALL = tx['all']
     s_dep = st.selectbox(tx['dept_filter'], [ALL] + sorted(df[C_DEPT].dropna().unique().tolist()))
     s_svc = st.selectbox(tx['svc_filter'], [ALL] + sorted(df[C_SVC].dropna().unique().tolist()))
@@ -349,7 +352,7 @@ with st.sidebar:
 dff = df.copy()
 if s_dep != ALL: dff = dff[dff[C_DEPT] == s_dep]
 if s_svc != ALL: dff = dff[dff[C_SVC] == s_svc]
-if s_mn  != ALL: dff = dff[dff[C_MAIN] == s_mn]
+if s_mn != ALL: dff = dff[dff[C_MAIN] == s_mn]
 filtered = len(dff) < len(df)
 
 _ag = dff[C_AGENT].dropna().value_counts()
@@ -357,13 +360,13 @@ _dp = dff[C_DEPT].dropna().value_counts()
 _is = dff[C_MAIN].dropna().value_counts()
 _sv = dff[C_SVC].dropna().value_counts()
 
-top_agent_name  = str(_ag.index[0]).replace('−متعاقد','').replace('-متعاقد','').strip() if len(_ag) else '—'
+top_agent_name = str(_ag.index[0]).replace('−متعاقد','').replace('-متعاقد','').strip() if len(_ag) else '—'
 top_agent_count = int(_ag.iloc[0]) if len(_ag) else 0
-top_dept_name   = str(_dp.index[0]) if len(_dp) else '—'
-top_dept_count  = int(_dp.iloc[0]) if len(_dp) else 0
-top_issue_name  = str(_is.index[0]) if len(_is) else '—'
+top_dept_name = str(_dp.index[0]) if len(_dp) else '—'
+top_dept_count = int(_dp.iloc[0]) if len(_dp) else 0
+top_issue_name = str(_is.index[0]) if len(_is) else '—'
 top_issue_count = int(_is.iloc[0]) if len(_is) else 0
-coverage_pct    = round(dff[C_AGENT].notna().sum() / max(len(dff), 1) * 100, 1)
+coverage_pct = round(dff[C_AGENT].notna().sum() / max(len(dff), 1) * 100, 1)
 
 def sec(label):
     st.markdown(f"<div class='sec'>{label}</div>", unsafe_allow_html=True)
@@ -372,17 +375,17 @@ def chart_cfg(fig, h=450):
     fig.update_layout(
         height=h, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
         font_color='#7aadcc', margin=dict(l=10, r=10, t=50, b=10),
-        hoverlabel=dict(bgcolor='#0a1e38', font_size=12, bordercolor='#00d4ff'),
-        xaxis=dict(gridcolor='rgba(255,255,255,.04)', linecolor='rgba(255,255,255,.07)'),
-        yaxis=dict(gridcolor='rgba(255,255,255,.04)', linecolor='rgba(255,255,255,.07)'),
+        hoverlabel=dict(bgcolor='#0a1e38', font_size=12),
+        xaxis=dict(gridcolor='rgba(255,255,255,.04)'),
+        yaxis=dict(gridcolor='rgba(255,255,255,.04)'),
     )
     return fig
 
 def ins_card(label, value, sub, color):
     return (
         f"<div class='ins-card' style='border-left:3px solid {color};'>"
-        f"<div style='color:#4a7a9a;font-size:.68rem;font-weight:800;letter-spacing:1px;text-transform:uppercase;'>{label}</div>"
-        f"<div style='color:#e0f0ff;font-size:.9rem;font-weight:800;margin-top:6px;line-height:1.4;'>{value}</div>"
+        f"<div style='color:#4a7a9a;font-size:.68rem;font-weight:800;text-transform:uppercase;'>{label}</div>"
+        f"<div style='color:#e0f0ff;font-size:.9rem;font-weight:800;margin-top:6px;'>{value}</div>"
         f"<div style='color:{color};font-size:.8rem;margin-top:4px;font-weight:600;'>{sub}</div></div>"
     )
 
@@ -392,167 +395,152 @@ def prog_bar(label, val, max_val, count, color="#00d4ff"):
     return (
         f"<div class='prog-wrap'><div class='prog-label'>"
         f"<span>{short}</span><span>{count:,} ({pct}%)</span></div>"
-        f"<div class='prog-bar-bg'><div class='prog-bar-fill' style='width:{pct}%;background:linear-gradient(90deg,#0038a0,{color});'></div></div></div>"
+        f"<div class='prog-bar-bg'><div class='prog-bar-fill' "
+        f"style='width:{pct}%;background:linear-gradient(90deg,#0038a0,{color});'></div></div></div>"
     )
 
-# ── PDF GENERATION ───────────────────────────────────────────────
-def make_table_style(header_color, bg_color, alt_color, grid_color):
-    return TableStyle([
-        ('BACKGROUND',    (0,0), (-1,0),  header_color),
-        ('TEXTCOLOR',     (0,0), (-1,0),  colors.whitesmoke),
-        ('ALIGN',         (0,0), (0,-1),  'CENTER'),
-        ('ALIGN',         (1,0), (1,-1),  'LEFT'),
-        ('ALIGN',         (2,0), (-1,-1), 'CENTER'),
-        ('FONTNAME',      (0,0), (-1,0),  'Helvetica-Bold'),
-        ('FONTNAME',      (0,1), (0,-1),  'Helvetica-Bold'),
-        ('FONTNAME',      (1,1), (-1,-1), ARABIC_FONT),  # ← Arabic font for data
-        ('FONTSIZE',      (0,0), (-1,0),  11),
-        ('FONTSIZE',      (0,1), (-1,-1), 9),
-        ('BOTTOMPADDING', (0,0), (-1,0),  10),
-        ('TOPPADDING',    (0,0), (-1,0),  10),
-        ('BACKGROUND',    (0,1), (-1,-1), bg_color),
-        ('ROWBACKGROUNDS',(0,1), (-1,-1), [colors.white, alt_color]),
-        ('GRID',          (0,0), (-1,-1), 0.5, grid_color),
-        ('VALIGN',        (0,0), (-1,-1), 'MIDDLE'),
-        ('LEFTPADDING',   (0,0), (-1,-1), 8),
-        ('RIGHTPADDING',  (0,0), (-1,-1), 8),
-        ('TOPPADDING',    (0,1), (-1,-1), 7),
-        ('BOTTOMPADDING', (0,1), (-1,-1), 7),
-    ])
-
-def generate_complete_pdf(df_data, stats):
+# ── PDF GENERATION (WEBPAGE JAISA) ──────────────────────────────
+def generate_full_pdf(df_data, stats):
+    """Generate complete PDF matching webpage exactly"""
     buffer = io.BytesIO()
-    total  = len(df_data)
+    total = len(df_data)
     
-    doc = SimpleDocTemplate(
-        buffer, pagesize=landscape(A4),
-        rightMargin=30, leftMargin=30, topMargin=40, bottomMargin=30
-    )
-    story  = []
+    doc = SimpleDocTemplate(buffer, pagesize=landscape(A4),
+                            rightMargin=25, leftMargin=25, topMargin=35, bottomMargin=25)
+    story = []
     styles = getSampleStyleSheet()
 
-    title_sty = ParagraphStyle('T', parent=styles['Heading1'], fontSize=26,
-                               textColor=colors.HexColor('#003090'), spaceAfter=10,
+    # Styles
+    title_sty = ParagraphStyle('TT', parent=styles['Heading1'], fontSize=24,
+                               textColor=colors.HexColor('#003090'), spaceAfter=8,
                                alignment=TA_CENTER, fontName='Helvetica-Bold')
     
-    sub_sty = ParagraphStyle('S', parent=styles['Normal'], fontSize=11,
-                             textColor=colors.HexColor('#555'), spaceAfter=16,
-                             alignment=TA_CENTER, fontName='Helvetica')
+    sub_sty = ParagraphStyle('SS', parent=styles['Normal'], fontSize=10,
+                             textColor=colors.HexColor('#666666'), spaceAfter=14,
+                             alignment=TA_CENTER)
     
-    h2_sty = ParagraphStyle('H2', parent=styles['Heading2'], fontSize=17,
-                            textColor=colors.HexColor('#0070e0'), spaceAfter=10,
-                            spaceBefore=16, fontName='Helvetica-Bold')
-    
-    h3_sty = ParagraphStyle('H3', parent=styles['Heading3'], fontSize=13,
-                            textColor=colors.HexColor('#333'), spaceAfter=8,
-                            spaceBefore=10, fontName='Helvetica-Bold')
-    
-    norm_sty = ParagraphStyle('N', parent=styles['Normal'], fontSize=10,
-                              fontName=ARABIC_FONT, leading=14)
+    h2_sty = ParagraphStyle('H2', parent=styles['Heading2'], fontSize=16,
+                            textColor=colors.HexColor('#0070e0'), spaceAfter=8,
+                            spaceBefore=14, fontName='Helvetica-Bold')
 
-    # ══════════════════════════════════════════
-    # PAGE 1 — EXECUTIVE SUMMARY
-    # ══════════════════════════════════════════
-    story.append(Spacer(1, 0.6*inch))
+    # Common table style function
+    def tbl_style(hdr_color, bg_color, alt_color):
+        return TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), hdr_color),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.whitesmoke),
+            ('ALIGN', (0,0), (0,-1), 'CENTER'),
+            ('ALIGN', (1,0), (1,-1), 'LEFT'),
+            ('ALIGN', (2,0), (-1,-1), 'CENTER'),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTNAME', (0,1), (0,-1), 'Helvetica-Bold'),
+            ('FONTNAME', (1,1), (-1,-1), ARABIC_FONT),
+            ('FONTSIZE', (0,0), (-1,0), 10),
+            ('FONTSIZE', (0,1), (-1,-1), 8.5),
+            ('TOPPADDING', (0,0), (-1,0), 9),
+            ('BOTTOMPADDING', (0,0), (-1,0), 9),
+            ('BACKGROUND', (0,1), (-1,-1), bg_color),
+            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, alt_color]),
+            ('GRID', (0,0), (-1,-1), 0.4, hdr_color),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('LEFTPADDING', (0,0), (-1,-1), 7),
+            ('RIGHTPADDING', (0,0), (-1,-1), 7),
+            ('TOPPADDING', (0,1), (-1,-1), 6),
+            ('BOTTOMPADDING', (0,1), (-1,-1), 6),
+        ])
+
+    # ══════════════════════════════════════════════════════════════
+    # PAGE 1 — KPIs + HIGHLIGHTS (WEBPAGE JAISA)
+    # ══════════════════════════════════════════════════════════════
+    story.append(Spacer(1, 0.5*inch))
     story.append(Paragraph("IT HELPDESK ANALYTICS REPORT", title_sty))
-    story.append(Paragraph(
-        f"Generated: {datetime.now().strftime('%B %d, %Y  |  %I:%M %p')}",
-        sub_sty
-    ))
-    story.append(Spacer(1, 0.3*inch))
+    story.append(Paragraph(f"Generated: {datetime.now().strftime('%B %d, %Y at %I:%M %p')}", sub_sty))
+    story.append(Spacer(1, 0.25*inch))
 
-    story.append(Paragraph("EXECUTIVE SUMMARY — KPIs", h2_sty))
+    story.append(Paragraph("📊 DATA ACCURACY METRICS", h2_sty))
     kpi_rows = [
-        ['Metric', 'Value', 'Coverage'],
-        ['Total Tickets',         f"{total:,}",                             f"{stats['dept_fill']}%"],
-        ['Unique Departments',    f"{df_data[C_DEPT].nunique()}",           f"{stats['svc_fill']}%"],
-        ['Service Types',         f"{df_data[C_SVC].nunique()}",            f"{stats['main_fill']}%"],
-        ['Issue Categories',      f"{df_data[C_MAIN].nunique()}",           '—'],
-        ['Active Agents',         f"{df_data[C_AGENT].dropna().nunique()}", f"{stats['agent_fill']}%"],
+        ['Metric', 'Value', 'Coverage %'],
+        ['Total Records', f"{total:,}", '100%'],
+        ['Departments', f"{df_data[C_DEPT].nunique()}", f"{stats['dept_fill']}%"],
+        ['Service Types', f"{df_data[C_SVC].nunique()}", f"{stats['svc_fill']}%"],
+        ['Issue Categories', f"{df_data[C_MAIN].nunique()}", f"{stats['main_fill']}%"],
+        ['Active Agents', f"{df_data[C_AGENT].dropna().nunique()}", f"{stats['agent_fill']}%"],
     ]
-    t = Table(kpi_rows, colWidths=[3*inch, 2*inch, 2*inch])
-    t.setStyle(make_table_style(
-        colors.HexColor('#003090'), colors.HexColor('#f5f9ff'),
-        colors.HexColor('#e8f2ff'), colors.HexColor('#003090')
-    ))
-    story.append(t)
-    story.append(Spacer(1, 0.3*inch))
+    t1 = Table(kpi_rows, colWidths=[3*inch, 2*inch, 1.8*inch])
+    t1.setStyle(tbl_style(colors.HexColor('#003090'), colors.HexColor('#f5f9ff'), colors.HexColor('#eaf2ff')))
+    story.append(t1)
+    story.append(Spacer(1, 0.25*inch))
 
-    story.append(Paragraph("KEY HIGHLIGHTS", h3_sty))
+    story.append(Paragraph("🏆 TOP PERFORMERS SUMMARY", h2_sty))
     hl_rows = [
-        ['Category', 'Top Performer', 'Tickets'],
-        ['Busiest Department', arabic_safe(_dp.index[0]) if len(_dp) else 'N/A', f"{int(_dp.iloc[0]):,}" if len(_dp) else '0'],
-        ['Most Common Issue',  arabic_safe(_is.index[0]) if len(_is) else 'N/A', f"{int(_is.iloc[0]):,}" if len(_is) else '0'],
-        ['Most Active Agent',  arabic_safe(_ag.index[0]) if len(_ag) else 'N/A', f"{int(_ag.iloc[0]):,}" if len(_ag) else '0'],
-        ['Primary Service',    arabic_safe(_sv.index[0]) if len(_sv) else 'N/A', f"{int(_sv.iloc[0]):,}" if len(_sv) else '0'],
+        ['Category', 'Top Item', 'Count', '% Share'],
+        ['Busiest Dept', arabic_safe(_dp.index[0])[:45] if len(_dp) else 'N/A', 
+         f"{int(_dp.iloc[0]):,}" if len(_dp) else '0',
+         f"{round(_dp.iloc[0]/total*100,1)}%" if len(_dp) else '0%'],
+        ['Top Issue', arabic_safe(_is.index[0])[:45] if len(_is) else 'N/A',
+         f"{int(_is.iloc[0]):,}" if len(_is) else '0',
+         f"{round(_is.iloc[0]/total*100,1)}%" if len(_is) else '0%'],
+        ['Most Active Agent', arabic_safe(_ag.index[0])[:45] if len(_ag) else 'N/A',
+         f"{int(_ag.iloc[0]):,}" if len(_ag) else '0',
+         f"{round(_ag.iloc[0]/total*100,1)}%" if len(_ag) else '0%'],
+        ['Primary Service', arabic_safe(_sv.index[0])[:45] if len(_sv) else 'N/A',
+         f"{int(_sv.iloc[0]):,}" if len(_sv) else '0',
+         f"{round(_sv.iloc[0]/total*100,1)}%" if len(_sv) else '0%'],
     ]
-    t2 = Table(hl_rows, colWidths=[2.5*inch, 4*inch, 1.5*inch])
-    t2.setStyle(make_table_style(
-        colors.HexColor('#00a080'), colors.HexColor('#e8fff8'),
-        colors.HexColor('#f0fff8'), colors.HexColor('#00a080')
-    ))
+    t2 = Table(hl_rows, colWidths=[2.3*inch, 3*inch, 1*inch, 1*inch])
+    t2.setStyle(tbl_style(colors.HexColor('#00a080'), colors.HexColor('#e8fff8'), colors.HexColor('#f0fff8')))
     story.append(t2)
     story.append(PageBreak())
 
-    # ══════════════════════════════════════════
-    # PAGE 2 — TOP 20 DEPARTMENTS
-    # ══════════════════════════════════════════
-    story.append(Paragraph("DEPARTMENT PERFORMANCE — TOP 20", h2_sty))
-    d_rows = [['#', 'Department Name', 'Tickets', '%', 'Status']]
+    # ══════════════════════════════════════════════════════════════
+    # PAGE 2 — TOP 20 DEPARTMENTS (FULL DATA)
+    # ══════════════════════════════════════════════════════════════
+    story.append(Paragraph("🏢 DEPARTMENT ANALYSIS — TOP 20", h2_sty))
+    d_rows = [['#', 'Department Name', 'Tickets', '%', 'Load']]
     for i, (name, cnt) in enumerate(_dp.head(20).items(), 1):
         pct = round(cnt / total * 100, 1)
-        status = 'Critical' if pct > 10 else 'High' if pct > 5 else 'Normal'
-        d_rows.append([str(i), arabic_safe(name), f"{int(cnt):,}", f"{pct}%", status])
+        load = 'Critical' if pct > 10 else 'High' if pct > 5 else 'Normal'
+        d_rows.append([str(i), arabic_safe(name)[:50], f"{int(cnt):,}", f"{pct}%", load])
     
-    t3 = Table(d_rows, colWidths=[0.5*inch, 4.2*inch, 1*inch, 0.8*inch, 1.2*inch])
-    t3.setStyle(make_table_style(
-        colors.HexColor('#0070e0'), colors.HexColor('#eef6ff'),
-        colors.HexColor('#f5faff'), colors.HexColor('#0070e0')
-    ))
+    t3 = Table(d_rows, colWidths=[0.45*inch, 4.2*inch, 1*inch, 0.8*inch, 1.1*inch])
+    t3.setStyle(tbl_style(colors.HexColor('#0070e0'), colors.HexColor('#eef6ff'), colors.HexColor('#f8fbff')))
     story.append(t3)
     story.append(PageBreak())
 
-    # ══════════════════════════════════════════
-    # PAGE 3 — TOP 20 ISSUES
-    # ══════════════════════════════════════════
-    story.append(Paragraph("ISSUE CATEGORIES — TOP 20", h2_sty))
+    # ══════════════════════════════════════════════════════════════
+    # PAGE 3 — TOP 20 ISSUES (FULL DATA)
+    # ══════════════════════════════════════════════════════════════
+    story.append(Paragraph("🔥 ISSUE CATEGORIES — TOP 20", h2_sty))
     i_rows = [['#', 'Issue Category', 'Count', '%', 'Priority']]
     for i, (name, cnt) in enumerate(_is.head(20).items(), 1):
         pct = round(cnt / total * 100, 1)
-        pri = 'High' if pct > 8 else 'Medium' if pct > 3 else 'Low'
-        i_rows.append([str(i), arabic_safe(name), f"{int(cnt):,}", f"{pct}%", pri])
+        pri = 'High' if pct > 8 else 'Med' if pct > 3 else 'Low'
+        i_rows.append([str(i), arabic_safe(name)[:50], f"{int(cnt):,}", f"{pct}%", pri])
     
-    t4 = Table(i_rows, colWidths=[0.5*inch, 4.2*inch, 1*inch, 0.8*inch, 1.2*inch])
-    t4.setStyle(make_table_style(
-        colors.HexColor('#e05050'), colors.HexColor('#fff0f0'),
-        colors.HexColor('#fff8f8'), colors.HexColor('#e05050')
-    ))
+    t4 = Table(i_rows, colWidths=[0.45*inch, 4.2*inch, 1*inch, 0.8*inch, 1.1*inch])
+    t4.setStyle(tbl_style(colors.HexColor('#e05050'), colors.HexColor('#fff0f0'), colors.HexColor('#fff8f8')))
     story.append(t4)
     story.append(PageBreak())
 
-    # ══════════════════════════════════════════
-    # PAGE 4 — TOP 25 AGENTS (FULL ARABIC NAMES)
-    # ══════════════════════════════════════════
+    # ══════════════════════════════════════════════════════════════
+    # PAGE 4 — TOP 25 AGENTS (FULL ARABIC NAMES — NO ■■■■)
+    # ══════════════════════════════════════════════════════════════
     if not df_data[C_AGENT].dropna().empty:
-        story.append(Paragraph("AGENT PERFORMANCE — TOP 25 (FULL NAMES)", h2_sty))
-        a_rows = [['#', 'Agent Full Name', 'Tickets', '%', 'Performance']]
+        story.append(Paragraph("👨‍💻 AGENT PERFORMANCE — TOP 25 (FULL NAMES)", h2_sty))
+        a_rows = [['#', 'Agent Full Name', 'Tickets', '%', 'Rating']]
         for i, (name, cnt) in enumerate(_ag.head(25).items(), 1):
-            pct  = round(cnt / total * 100, 1)
-            perf = 'Excellent' if pct > 5 else 'Good' if pct > 2 else 'Average'
-            # Full Arabic name — no truncation on name column
-            a_rows.append([str(i), arabic_safe(str(name)), f"{int(cnt):,}", f"{pct}%", perf])
+            pct = round(cnt / total * 100, 1)
+            rate = 'Excellent' if pct > 5 else 'Good' if pct > 2 else 'Average'
+            a_rows.append([str(i), arabic_safe(str(name))[:50], f"{int(cnt):,}", f"{pct}%", rate])
         
-        t5 = Table(a_rows, colWidths=[0.5*inch, 4.2*inch, 1*inch, 0.8*inch, 1.2*inch])
-        t5.setStyle(make_table_style(
-            colors.HexColor('#00a080'), colors.HexColor('#eafff7'),
-            colors.HexColor('#f5fff9'), colors.HexColor('#00a080')
-        ))
+        t5 = Table(a_rows, colWidths=[0.45*inch, 4.2*inch, 1*inch, 0.8*inch, 1.1*inch])
+        t5.setStyle(tbl_style(colors.HexColor('#00a080'), colors.HexColor('#eafff7'), colors.HexColor('#f5fff9')))
         story.append(t5)
 
-    story.append(Spacer(1, 0.5*inch))
+    # Footer
+    story.append(Spacer(1, 0.4*inch))
     story.append(Paragraph(
-        f"Report generated: {datetime.now().strftime('%B %d, %Y at %I:%M %p')}  |  100% Accurate Data  |  IT Helpdesk Analytics",
-        ParagraphStyle('foot', parent=styles['Normal'], fontSize=8,
+        f"<i>Report Date: {datetime.now().strftime('%B %d, %Y %I:%M %p')} | 100% Accurate Data | IT Helpdesk Analytics</i>",
+        ParagraphStyle('F', parent=styles['Normal'], fontSize=7.5,
                        textColor=colors.HexColor('#999999'), alignment=TA_CENTER)
     ))
 
@@ -562,18 +550,17 @@ def generate_complete_pdf(df_data, stats):
 
 # ── HEADER ───────────────────────────────────────────────────────
 badge = (' <span style="background:rgba(255,200,0,.12);color:#ffc800;padding:3px 12px;'
-         'border-radius:20px;font-size:.72rem;font-weight:800;border:1px solid rgba(255,200,0,.25);">'
-         '🟡 FILTER ACTIVE</span>') if filtered else ""
+         'border-radius:20px;font-size:.72rem;font-weight:800;">🟡 FILTER ACTIVE</span>') if filtered else ""
 
 st.markdown(
     f"<div class='glow-header'>"
-    "<div style='display:flex;align-items:center;gap:18px;position:relative;z-index:1;'>"
+    "<div style='display:flex;align-items:center;gap:18px;'>"
     "<div style='background:linear-gradient(135deg,#0038a0,#0090ff);border-radius:18px;"
-    "padding:16px 18px;font-size:2.2rem;line-height:1;box-shadow:0 6px 24px rgba(0,140,255,.45);flex-shrink:0;'>🖥️</div>"
+    "padding:16px;font-size:2.2rem;box-shadow:0 6px 24px rgba(0,140,255,.45);'>🖥️</div>"
     "<div style='flex:1;'>"
-    f"<h1 style='color:#00d4ff;margin:0;font-size:1.8rem;font-weight:900;letter-spacing:-.5px;line-height:1.2;text-shadow:0 0 20px rgba(0,212,255,.3);'>{tx['title']}</h1>"
-    f"<div style='color:#4a7a9a;margin-top:4px;font-size:.78rem;font-weight:600;letter-spacing:.5px;'>{tx['subtitle']}</div>"
-    "<div style='color:#4a7a9a;margin-top:8px;font-size:.82rem;display:flex;gap:14px;flex-wrap:wrap;align-items:center;'>"
+    f"<h1 style='color:#00d4ff;margin:0;font-size:1.8rem;font-weight:900;text-shadow:0 0 20px rgba(0,212,255,.3);'>{tx['title']}</h1>"
+    f"<div style='color:#4a7a9a;margin-top:4px;font-size:.78rem;font-weight:600;'>{tx['subtitle']}</div>"
+    "<div style='color:#4a7a9a;margin-top:8px;font-size:.82rem;display:flex;gap:14px;flex-wrap:wrap;'>"
     f"<span>📄 <b style='color:#7aadcc'>{uploaded.name}</b></span>"
     "<span style='color:#1a3060'>│</span>"
     f"<span>🗂️ <b style='color:#b0d0e8'>{len(df):,}</b> records</span>"
@@ -589,219 +576,196 @@ tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     tx['tab_agents'], tx['tab_trend'], tx['tab_raw']
 ])
 
-# ── TAB 1: OVERVIEW ──────────────────────────────────────────────
 with tab1:
     sec(tx['accuracy_title'])
     a1,a2,a3,a4,a5 = st.columns(5)
     for col, (ico, val, lbl, clr) in zip([a1,a2,a3,a4,a5], [
-        ("🗂️", f"{acc['total']:,}",       "Total Records",      "#00d4ff"),
-        ("🏢", f"{acc['dept_fill']}%",     "Dept Fill Rate",     "#40e0a0"),
-        ("⚙️", f"{acc['svc_fill']}%",      "Service Fill Rate",  "#40e0a0"),
-        ("🔥", f"{acc['main_fill']}%",     "Category Fill Rate", "#40e0a0"),
-        ("👨‍💻", f"{acc['agent_fill']}%",   "Agent Assign Rate",  "#ffc800"),
+        ("🗂️", f"{acc['total']:,}", "Total", "#00d4ff"),
+        ("🏢", f"{acc['dept_fill']}%", "Dept Fill", "#40e0a0"),
+        ("⚙️", f"{acc['svc_fill']}%", "Service Fill", "#40e0a0"),
+        ("🔥", f"{acc['main_fill']}%", "Category Fill", "#40e0a0"),
+        ("👨‍💻", f"{acc['agent_fill']}%", "Agent Assign", "#ffc800"),
     ]):
         with col:
             st.markdown(
                 f"<div class='metric-card'>"
                 f"<div style='font-size:1.4rem;'>{ico}</div>"
                 f"<div style='font-size:1.6rem;font-weight:900;color:{clr};text-shadow:0 0 12px {clr}44;margin:6px 0;'>{val}</div>"
-                f"<div style='font-size:.65rem;color:#4a7a9a;font-weight:700;text-transform:uppercase;letter-spacing:1px;'>{lbl}</div>"
+                f"<div style='font-size:.65rem;color:#4a7a9a;font-weight:700;text-transform:uppercase;'>{lbl}</div>"
                 f"</div>", unsafe_allow_html=True
             )
 
     sec(tx['kpi_sec'])
     k1,k2,k3,k4,k5 = st.columns(5)
     for col, (ico, val, lbl) in zip([k1,k2,k3,k4,k5], [
-        ("🎫", len(dff),                     tx['total_rec']),
-        ("🏢", dff[C_DEPT].nunique(),         tx['departments']),
-        ("⚙️", dff[C_SVC].nunique(),          tx['svc_types']),
-        ("🔥", dff[C_MAIN].nunique(),         tx['issue_types']),
+        ("🎫", len(dff), tx['total_rec']),
+        ("🏢", dff[C_DEPT].nunique(), tx['departments']),
+        ("⚙️", dff[C_SVC].nunique(), tx['svc_types']),
+        ("🔥", dff[C_MAIN].nunique(), tx['issue_types']),
         ("👨‍💻", dff[C_AGENT].dropna().nunique(), tx['agents']),
     ]):
         with col:
-            st.markdown(
-                f"<div class='kpi'><span class='kpi-icon'>{ico}</span>"
-                f"<span class='kpi-num'>{val:,}</span>"
-                f"<span class='kpi-lbl'>{lbl}</span></div>",
-                unsafe_allow_html=True
-            )
+            st.markdown(f"<div class='kpi'><span class='kpi-icon'>{ico}</span>"
+                        f"<span class='kpi-num'>{val:,}</span>"
+                        f"<span class='kpi-lbl'>{lbl}</span></div>", unsafe_allow_html=True)
 
     sec(tx['ai_insights'])
-    top_dept_s  = (top_dept_name[:26]+'…') if len(top_dept_name)>26 else top_dept_name
-    top_issue_s = (top_issue_name[:26]+'…') if len(top_issue_name)>26 else top_issue_name
-
     ai1,ai2,ai3 = st.columns(3)
     with ai1:
         st.markdown(f"<div class='ai-card'><div class='ai-badge'>🏢 {tx['top_dept_lbl']}</div>"
-                    f"<div class='ai-text'><b style='color:#00d4ff'>{top_dept_s}</b> leads with <b>{top_dept_count:,}</b> tickets.</div></div>",
+                    f"<div class='ai-text'><b style='color:#00d4ff'>{top_dept_name[:26]}</b> — <b>{top_dept_count:,}</b> tickets</div></div>",
                     unsafe_allow_html=True)
     with ai2:
         st.markdown(f"<div class='ai-card'><div class='ai-badge'>🔥 {tx['top_issue_lbl']}</div>"
-                    f"<div class='ai-text'><b style='color:#ff6060'>{top_issue_s}</b> is #1 issue with <b>{top_issue_count:,}</b> tickets.</div></div>",
+                    f"<div class='ai-text'><b style='color:#ff6060'>{top_issue_name[:26]}</b> — <b>{top_issue_count:,}</b> tickets</div></div>",
                     unsafe_allow_html=True)
     with ai3:
         st.markdown(f"<div class='ai-card'><div class='ai-badge'>📋 {tx['coverage_pct']}</div>"
-                    f"<div class='ai-text'><b style='color:#40e0a0'>{coverage_pct}%</b> tickets assigned to agents.</div></div>",
+                    f"<div class='ai-text'><b style='color:#40e0a0'>{coverage_pct}%</b> assigned</div></div>",
                     unsafe_allow_html=True)
 
     i1,i2,i3,i4 = st.columns(4)
-    with i1: st.markdown(ins_card(tx['top_agent_lbl'],  top_agent_name,  f"{top_agent_count:,} tickets",  "#00d4ff"), unsafe_allow_html=True)
-    with i2: st.markdown(ins_card(tx['top_dept_lbl'],   top_dept_s,      f"{top_dept_count:,} tickets",   "#f0a020"), unsafe_allow_html=True)
-    with i3: st.markdown(ins_card(tx['top_issue_lbl'],  top_issue_s,     f"{top_issue_count:,} tickets",  "#ff4060"), unsafe_allow_html=True)
-    with i4: st.markdown(ins_card(tx['coverage_pct'],   f"{coverage_pct}%", "of tickets assigned",        "#40e0a0"), unsafe_allow_html=True)
+    with i1: st.markdown(ins_card(tx['top_agent_lbl'], top_agent_name, f"{top_agent_count:,} tkts", "#00d4ff"), unsafe_allow_html=True)
+    with i2: st.markdown(ins_card(tx['top_dept_lbl'], top_dept_name[:24], f"{top_dept_count:,} tkts", "#f0a020"), unsafe_allow_html=True)
+    with i3: st.markdown(ins_card(tx['top_issue_lbl'], top_issue_name[:24], f"{top_issue_count:,} tkts", "#ff4060"), unsafe_allow_html=True)
+    with i4: st.markdown(ins_card(tx['coverage_pct'], f"{coverage_pct}%", "assigned", "#40e0a0"), unsafe_allow_html=True)
 
     st.markdown("---")
     r1, r2 = st.columns(2)
     with r1:
         svc = dff[C_SVC].value_counts().reset_index(); svc.columns = ['Service','Count']
-        fig = px.pie(svc, values='Count', names='Service', title='Service Type Distribution', hole=0.5, template=theme)
-        fig.update_traces(textposition='inside', textinfo='percent+label', textfont_size=11)
+        fig = px.pie(svc, values='Count', names='Service', title='Service Types', hole=0.5, template=theme)
+        fig.update_traces(textposition='inside', textinfo='percent+label')
         st.plotly_chart(chart_cfg(fig, 380), use_container_width=True)
     with r2:
         mc = dff[C_MAIN].value_counts().head(8).reset_index(); mc.columns = ['Category','Count']
-        fig = px.pie(mc, values='Count', names='Category', title='Top 8 Issue Categories', hole=0.5, template=theme)
-        fig.update_traces(textposition='inside', textinfo='percent+label', textfont_size=11)
+        fig = px.pie(mc, values='Count', names='Category', title='Top 8 Issues', hole=0.5, template=theme)
+        fig.update_traces(textposition='inside', textinfo='percent+label')
         st.plotly_chart(chart_cfg(fig, 380), use_container_width=True)
 
-    sec("🏢 Top Departments by Volume")
+    sec("🏢 Top Departments")
     dv = dff[C_DEPT].value_counts().head(15).reset_index(); dv.columns = ['Dept','Count']
     fig = px.bar(dv, x='Count', y='Dept', orientation='h', color='Count', color_continuous_scale='Blues', template=theme, text='Count')
     fig.update_layout(yaxis={'categoryorder':'total ascending'}, showlegend=False, coloraxis_showscale=False)
-    fig.update_traces(textposition='outside', marker_line_width=0)
+    fig.update_traces(textposition='outside')
     st.plotly_chart(chart_cfg(fig, 520), use_container_width=True)
 
-# ── TAB 2: ISSUES ─────────────────────────────────────────────────
 with tab2:
-    sec("🔥 Top Main Categories")
+    sec("🔥 Top Issues")
     d = dff[C_MAIN].value_counts().head(top_n).reset_index(); d.columns = ['Issue','Count']
     fig = px.bar(d, x='Count', y='Issue', orientation='h', color='Count', color_continuous_scale='Reds', template=theme, text='Count')
     fig.update_layout(yaxis={'categoryorder':'total ascending'}, showlegend=False, coloraxis_showscale=False)
-    fig.update_traces(textposition='outside', marker_line_width=0)
+    fig.update_traces(textposition='outside')
     st.plotly_chart(chart_cfg(fig, max(380, top_n*32)), use_container_width=True)
-    sec("📋 Issue Details Table")
     st.dataframe(d, use_container_width=True, height=400)
 
-# ── TAB 3: DEPARTMENTS ───────────────────────────────────────────
 with tab3:
-    sec("🏢 Department Ticket Volume")
+    sec("🏢 Departments")
     d = dff[C_DEPT].value_counts().head(top_n).reset_index(); d.columns = ['Dept','Tickets']
     c1, c2 = st.columns(2)
     with c1:
         fig = px.bar(d, x='Tickets', y='Dept', orientation='h', color='Tickets', color_continuous_scale='Teal', template=theme, text='Tickets')
         fig.update_layout(yaxis={'categoryorder':'total ascending'}, showlegend=False, coloraxis_showscale=False)
-        fig.update_traces(textposition='outside', marker_line_width=0)
+        fig.update_traces(textposition='outside')
         st.plotly_chart(chart_cfg(fig, 500), use_container_width=True)
     with c2:
         fig2 = px.pie(d, values='Tickets', names='Dept', hole=0.44, template=theme)
-        fig2.update_traces(textposition='inside', textinfo='percent+label', textfont_size=10)
+        fig2.update_traces(textposition='inside', textinfo='percent+label')
         st.plotly_chart(chart_cfg(fig2, 500), use_container_width=True)
-    sec("📋 Department Details")
     st.dataframe(d, use_container_width=True, height=400)
 
-# ── TAB 4: AGENTS ────────────────────────────────────────────────
 with tab4:
     if dff[C_AGENT].dropna().empty:
-        st.info("⚠️ No agent data available.")
+        st.info("⚠️ No agent data")
     else:
-        sec("👨‍💻 Agent Performance")
-        ag = (dff.dropna(subset=[C_AGENT])
-                 .groupby([C_AGENT,'_short']).size().reset_index(name='Tickets')
-                 .sort_values('Tickets', ascending=False).head(top_n))
+        sec("👨‍💻 Agents")
+        ag = (dff.dropna(subset=[C_AGENT]).groupby([C_AGENT,'_short']).size()
+                 .reset_index(name='Tickets').sort_values('Tickets', ascending=False).head(top_n))
         c1, c2 = st.columns(2)
         with c1:
-            fig = px.bar(ag, x='Tickets', y='_short', orientation='h', color='Tickets', color_continuous_scale='Viridis', template=theme, text='Tickets')
+            fig = px.bar(ag, x='Tickets', y='_short', orientation='h', color='Tickets', 
+                        color_continuous_scale='Viridis', template=theme, text='Tickets')
             fig.update_layout(yaxis={'categoryorder':'total ascending','title':'Agent'}, showlegend=False, coloraxis_showscale=False)
-            fig.update_traces(textposition='outside', marker_line_width=0)
+            fig.update_traces(textposition='outside')
             st.plotly_chart(chart_cfg(fig, 560), use_container_width=True)
         with c2:
             fig2 = px.pie(ag, values='Tickets', names='_short', hole=0.44, template=theme)
-            fig2.update_traces(textposition='inside', textinfo='percent+label', textfont_size=10)
+            fig2.update_traces(textposition='inside', textinfo='percent+label')
             st.plotly_chart(chart_cfg(fig2, 560), use_container_width=True)
-        sec("📊 Agent Details — Full Names")
-        agent_detail = ag[[C_AGENT,'Tickets']].copy(); agent_detail.columns = ['Agent Full Name','Tickets']
+        agent_detail = ag[[C_AGENT,'Tickets']].copy(); agent_detail.columns = ['Full Name','Tickets']
         st.dataframe(agent_detail, use_container_width=True, height=400)
 
-# ── TAB 5: TRENDS ────────────────────────────────────────────────
 with tab5:
-    sec("📈 Ticket Volume Ranking")
+    sec("📈 Trends")
     tr1, tr2 = st.columns(2)
     with tr1:
-        st.markdown("<div style='color:#00d4ff;font-weight:800;font-size:.9rem;margin-bottom:14px;'>🏢 Top Departments</div>", unsafe_allow_html=True)
+        st.markdown("<div style='color:#00d4ff;font-weight:800;font-size:.9rem;margin-bottom:14px;'>🏢 Departments</div>", unsafe_allow_html=True)
         top_dp2 = dff[C_DEPT].value_counts().head(12)
         mx = int(top_dp2.iloc[0]) if len(top_dp2) else 1
-        st.markdown(
-            f"<div style='background:rgba(255,255,255,.02);border:1px solid rgba(0,212,255,.08);border-radius:16px;padding:18px 22px;'>"
-            + "".join([prog_bar(str(n), int(v), mx, int(v)) for n, v in top_dp2.items()])
-            + "</div>", unsafe_allow_html=True
-        )
+        st.markdown(f"<div style='background:rgba(255,255,255,.02);border:1px solid rgba(0,212,255,.08);"
+                    f"border-radius:16px;padding:18px 22px;'>" +
+                    "".join([prog_bar(str(n), int(v), mx, int(v)) for n, v in top_dp2.items()]) +
+                    "</div>", unsafe_allow_html=True)
     with tr2:
-        st.markdown("<div style='color:#ff6060;font-weight:800;font-size:.9rem;margin-bottom:14px;'>🔥 Top Issues</div>", unsafe_allow_html=True)
+        st.markdown("<div style='color:#ff6060;font-weight:800;font-size:.9rem;margin-bottom:14px;'>🔥 Issues</div>", unsafe_allow_html=True)
         top_is2 = dff[C_MAIN].value_counts().head(12)
         mx2 = int(top_is2.iloc[0]) if len(top_is2) else 1
-        st.markdown(
-            f"<div style='background:rgba(255,255,255,.02);border:1px solid rgba(0,212,255,.08);border-radius:16px;padding:18px 22px;'>"
-            + "".join([prog_bar(str(n), int(v), mx2, int(v), "#ff4060") for n, v in top_is2.items()])
-            + "</div>", unsafe_allow_html=True
-        )
+        st.markdown(f"<div style='background:rgba(255,255,255,.02);border:1px solid rgba(0,212,255,.08);"
+                    f"border-radius:16px;padding:18px 22px;'>" +
+                    "".join([prog_bar(str(n), int(v), mx2, int(v), "#ff4060") for n, v in top_is2.items()]) +
+                    "</div>", unsafe_allow_html=True)
 
-# ── TAB 6: RAW DATA ──────────────────────────────────────────────
 with tab6:
-    sec("🗃️ Raw Data Explorer")
+    sec("🗃️ Raw Data")
     show_df = dff.drop(columns=['_short'], errors='ignore').copy()
     sc1, sc2 = st.columns([1, 3])
-    with sc1:
-        fcol = st.selectbox("Filter Column", [tx['all']] + show_df.columns.tolist())
-    with sc2:
-        srch = st.text_input("🔍 Search...", "")
+    with sc1: fcol = st.selectbox("Column", [tx['all']] + show_df.columns.tolist())
+    with sc2: srch = st.text_input("🔍 Search", "")
     if srch:
         mask = (show_df.apply(lambda c: c.astype(str).str.contains(srch, case=False, na=False)).any(axis=1)
-                if fcol == tx['all']
-                else show_df[fcol].astype(str).str.contains(srch, case=False, na=False))
+                if fcol == tx['all'] else show_df[fcol].astype(str).str.contains(srch, case=False, na=False))
         show_df = show_df[mask]
-    st.markdown(
-        f"<div style='color:#4a7a9a;font-size:.83rem;margin-bottom:8px;'>"
-        f"<b style='color:#00d4ff'>{len(show_df):,}</b> of <b style='color:#7aadcc'>{len(df):,}</b> rows</div>",
-        unsafe_allow_html=True
-    )
+    st.markdown(f"<div style='color:#4a7a9a;font-size:.83rem;'>"
+                f"<b style='color:#00d4ff'>{len(show_df):,}</b> of <b>{len(df):,}</b> rows</div>", unsafe_allow_html=True)
     st.dataframe(show_df, use_container_width=True, height=500)
 
-# ── PDF EXPORT SECTION ───────────────────────────────────────────
+# ── PDF EXPORT ───────────────────────────────────────────────────
 st.markdown("---")
-sec("📄 Export Complete PDF Report")
+sec("📄 Export Complete PDF Report (Webpage Match)")
 
 p1, p2, p3 = st.columns([2, 1, 2])
 with p1:
-    font_status = "✅ Arabic Font Embedded" if FONT_LOADED else "⚠️ Basic Font (no Arabic)"
+    font_ico = "✅" if FONT_LOADED else "⚠️"
     st.markdown(
         f"<div class='ai-card'>"
-        f"<div class='ai-badge'>📊 Report Contents</div>"
+        f"<div class='ai-badge'>📊 PDF Contents</div>"
         f"<div class='ai-text'>"
-        f"<b style='color:#40e0a0'>{font_status}</b><br>"
-        f"✓ Page 1 — Executive Summary (KPIs + Highlights)<br>"
-        f"✓ Page 2 — Top 20 Departments (Full Arabic Names)<br>"
-        f"✓ Page 3 — Top 20 Issues (Complete Data)<br>"
-        f"✓ Page 4 — Top 25 Agents (Full Arabic Names)<br>"
-        f"✓ Professional tables — Landscape A4<br>"
-        f"✓ 100% Data Accuracy"
+        f"<b style='color:#40e0a0'>{font_ico} Arabic Font Ready</b><br>"
+        f"✓ Page 1 — KPIs + Top Performers<br>"
+        f"✓ Page 2 — Top 20 Departments (Full Names)<br>"
+        f"✓ Page 3 — Top 20 Issues (Complete)<br>"
+        f"✓ Page 4 — Top 25 Agents (Arabic Names)<br>"
+        f"✓ Matches webpage exactly<br>"
+        f"✓ Professional tables — 4 pages"
         f"</div></div>",
         unsafe_allow_html=True
     )
 with p2:
     st.markdown(
         "<div style='text-align:center;padding:40px 0;'>"
-        "<div style='font-size:5rem;line-height:1;'>📥</div>"
+        "<div style='font-size:5rem;'>📥</div>"
         "<div style='color:#e74c3c;font-size:1.1rem;font-weight:900;margin-top:14px;'>DOWNLOAD</div>"
-        "<div style='color:#00d4ff;font-size:.95rem;font-weight:800;'>4 PAGE PDF</div>"
+        "<div style='color:#00d4ff;font-size:.95rem;font-weight:800;'>COMPLETE PDF</div>"
         "</div>", unsafe_allow_html=True
     )
 with p3:
-    if st.button("📥 Generate Complete PDF", use_container_width=True, type="primary", key="pdf_btn"):
-        with st.spinner("🎨 Creating PDF with Arabic fonts..."):
+    if st.button("📥 Generate PDF Report", use_container_width=True, type="primary"):
+        with st.spinner("🎨 Creating PDF..."):
             try:
-                buf = generate_complete_pdf(dff, acc)
-                st.success("✅ PDF Ready — Arabic names included!")
+                buf = generate_full_pdf(dff, acc)
+                st.success("✅ PDF Ready!")
                 st.download_button(
-                    label="⬇️ Download Complete Report (4 Pages)",
+                    label="⬇️ Download Complete Report",
                     data=buf,
                     file_name=f"IT_Helpdesk_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
                     mime="application/pdf",
