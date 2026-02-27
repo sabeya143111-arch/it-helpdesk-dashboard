@@ -245,7 +245,7 @@ def load_data(rb):
     else:
         df['_short'] = pd.NA
     
-    # ✅ RENAME COLUMNS TO ENGLISH
+    # RENAME COLUMNS TO ENGLISH
     df = df.rename(columns=COLUMN_MAP)
     
     # Calculate accuracy stats
@@ -317,9 +317,7 @@ def fig_to_png(fig, w=900, h=420):
     except:
         return None
 
-# ══════════════════════════════════════════════════════════════════
-# PERFECT PDF GENERATOR (English Headers + Arabic Content)
-# ══════════════════════════════════════════════════════════════════
+# ── PERFECT PDF GENERATOR (English Headers + Arabic Data) ────────
 def generate_premium_pdf(df_data, stats, language="English"):
     buffer = io.BytesIO()
     total = len(df_data)
@@ -330,7 +328,6 @@ def generate_premium_pdf(df_data, stats, language="English"):
                             topMargin=0.75*inch, bottomMargin=0.6*inch)
     story = []
 
-    # ── COLORS ───────────────────────────────────────────────────
     PRIMARY   = colors.HexColor('#1f6feb')
     ACCENT    = colors.HexColor('#58a6ff')
     SUCCESS   = colors.HexColor('#3fb950')
@@ -342,7 +339,6 @@ def generate_premium_pdf(df_data, stats, language="English"):
     BG        = colors.HexColor('#f6f8fa')
     WHITE     = colors.white
 
-    # ── STYLES ───────────────────────────────────────────────────
     base_font = AR_FONT if is_ar else 'Helvetica'
     bold_font = AR_FONT_BOLD if is_ar else 'Helvetica-Bold'
     ar_leading_multiplier = 1.8 if is_ar else 1.3
@@ -384,7 +380,6 @@ def generate_premium_pdf(df_data, stats, language="English"):
         fontSize=8, textColor=colors.HexColor('#6e7681'),
         alignment=TA_CENTER, fontName='Helvetica', leading=11)
 
-    # ── TABLE HELPER ─────────────────────────────────────────────
     def tbl(data, widths, hdr_color, stripe=True):
         """Create table with English headers and Arabic-aware content"""
         processed_data = []
@@ -393,11 +388,9 @@ def generate_premium_pdf(df_data, stats, language="English"):
             for cell_idx, cell in enumerate(row):
                 cell_str = str(cell)
                 
-                # ✅ FIRST ROW (HEADERS) = ALWAYS ENGLISH
                 if row_idx == 0:
-                    processed_row.append(cell_str)  # Keep headers as-is
+                    processed_row.append(cell_str)
                 else:
-                    # ✅ DATA ROWS = Arabic content with RTL if needed
                     if is_ar and any('\u0600' <= c <= '\u06FF' for c in cell_str):
                         processed_row.append(ar(cell_str, max_len=50))
                     else:
@@ -411,10 +404,10 @@ def generate_premium_pdf(df_data, stats, language="English"):
         styles = [
             ('BACKGROUND',    (0,0), (-1,0),  hdr_color),
             ('TEXTCOLOR',     (0,0), (-1,0),  WHITE),
-            ('FONTNAME',      (0,0), (-1,0),  'Helvetica-Bold'),  # ✅ English headers
+            ('FONTNAME',      (0,0), (-1,0),  'Helvetica-Bold'),
             ('FONTSIZE',      (0,0), (-1,0),  9),
             ('ALIGN',         (0,0), (-1,-1), 'CENTER'),
-            ('FONTNAME',      (0,1), (-1,-1), base_font),  # ✅ Arabic data
+            ('FONTNAME',      (0,1), (-1,-1), base_font),
             ('FONTSIZE',      (0,1), (-1,-1), 8.5),
             ('GRID',          (0,0), (-1,-1), 0.5, colors.HexColor('#d0d7de')),
             ('VALIGN',        (0,0), (-1,-1), 'MIDDLE'),
@@ -464,9 +457,6 @@ def generate_premium_pdf(df_data, stats, language="English"):
         ]))
         return t
 
-    # ══════════════════════════════════════════════════════════════
-    # COVER PAGE
-    # ══════════════════════════════════════════════════════════════
     story.append(Spacer(1, 1.2*inch))
     story.append(Paragraph(
         ar("تحليلات مكتب الدعم التقني") if is_ar else "IT HELPDESK ANALYTICS",
@@ -502,9 +492,6 @@ def generate_premium_pdf(df_data, stats, language="English"):
         footer))
     story.append(PageBreak())
 
-    # ══════════════════════════════════════════════════════════════
-    # EXECUTIVE SUMMARY
-    # ══════════════════════════════════════════════════════════════
     story.append(Paragraph(
         ar("الملخص التنفيذي") if is_ar else "EXECUTIVE SUMMARY",
         h1))
@@ -525,17 +512,13 @@ high precision. Data quality verification demonstrates {stats['dept_fill']}% dep
     story.append(Paragraph(exec_text.strip(), body))
     story.append(Spacer(1, 0.2*inch))
 
-    # ══════════════════════════════════════════════════════════════
-    # KPI TABLE (✅ ENGLISH HEADERS)
-    # ══════════════════════════════════════════════════════════════
     story.append(Paragraph(
         ar("مؤشرات الأداء الرئيسية") if is_ar else "KEY PERFORMANCE INDICATORS",
         h2))
     story.append(Spacer(1, 0.1*inch))
     
-    # ✅ HEADERS ALWAYS IN ENGLISH
     kpi_data = [
-        ["Metric", "Value", "Coverage", "Status"],  # ✅ English
+        ["Metric", "Value", "Coverage", "Status"],
         [ar("إجمالي التذاكر") if is_ar else "Total Tickets",
          f"{total:,}", "100%", "✓"],
         [ar("الإدارات الفريدة") if is_ar else "Unique Departments",
@@ -555,17 +538,13 @@ high precision. Data quality verification demonstrates {stats['dept_fill']}% dep
     story.append(tbl(kpi_data, [2.2*inch, 1.3*inch, 1.1*inch, 0.7*inch], PRIMARY))
     story.append(Spacer(1, 0.2*inch))
 
-    # ══════════════════════════════════════════════════════════════
-    # TOP PERFORMERS (✅ ENGLISH HEADERS)
-    # ══════════════════════════════════════════════════════════════
     story.append(Paragraph(
         ar("أفضل الأداء والمقاييس الحرجة") if is_ar else "TOP PERFORMERS & CRITICAL METRICS",
         h2))
     story.append(Spacer(1, 0.1*inch))
     
-    # ✅ HEADERS IN ENGLISH, DATA IN ARABIC
     top_data = [
-        ["Category", "Top Item", "Volume", "% Share"],  # ✅ English
+        ["Category", "Top Item", "Volume", "% Share"],
         [ar("أكثر إدارة") if is_ar else "Busiest Department",
          ar(td_name, max_len=35),
          f"{int(td_cnt):,}" if len(_dp) else '0',
@@ -583,9 +562,6 @@ high precision. Data quality verification demonstrates {stats['dept_fill']}% dep
     story.append(tbl(top_data, [1.6*inch, 2.6*inch, 0.9*inch, 0.9*inch], SUCCESS))
     story.append(PageBreak())
 
-    # ══════════════════════════════════════════════════════════════
-    # VISUAL ANALYTICS
-    # ══════════════════════════════════════════════════════════════
     story.append(Paragraph(
         ar("التحليلات المرئية — توزيع الخدمات") if is_ar else "VISUAL ANALYTICS — DISTRIBUTION",
         h1))
@@ -622,15 +598,11 @@ high precision. Data quality verification demonstrates {stats['dept_fill']}% dep
     add_chart(fig_dept, 7.5, 3.5)
     story.append(PageBreak())
 
-    # ══════════════════════════════════════════════════════════════
-    # DETAILED TABLES (✅ ENGLISH HEADERS)
-    # ══════════════════════════════════════════════════════════════
     story.append(Paragraph(
         ar("التحليل التفصيلي — أعلى المشكلات") if is_ar else "DETAILED ANALYSIS — TOP ISSUES",
         h1))
     story.append(Spacer(1, 0.12*inch))
 
-    # ✅ ENGLISH HEADERS
     issue_headers = ["#", "Issue Category", "Count", "%"]
     issue_rows = [issue_headers]
     for i,(name,cnt) in enumerate(_is.head(18).items(),1):
@@ -645,7 +617,6 @@ high precision. Data quality verification demonstrates {stats['dept_fill']}% dep
         h2))
     story.append(Spacer(1, 0.1*inch))
     
-    # ✅ ENGLISH HEADERS
     dept_headers = ["#", "Department", "Tickets", "%"]
     dept_rows = [dept_headers]
     for i,(name,cnt) in enumerate(_dp.head(18).items(),1):
@@ -655,16 +626,12 @@ high precision. Data quality verification demonstrates {stats['dept_fill']}% dep
     story.append(tbl(dept_rows, [0.3*inch, 3.8*inch, 0.8*inch, 0.6*inch], ACCENT))
     story.append(PageBreak())
 
-    # ══════════════════════════════════════════════════════════════
-    # AGENT PERFORMANCE (✅ ENGLISH HEADERS)
-    # ══════════════════════════════════════════════════════════════
     if not df_data[C_AGENT].dropna().empty:
         story.append(Paragraph(
             ar("أداء الموظفين وتوزيع أحمال العمل") if is_ar else "AGENT PERFORMANCE",
             h1))
         story.append(Spacer(1, 0.12*inch))
 
-        # ✅ ENGLISH HEADERS
         agent_headers = ["#", "Agent Name", "Tickets", "%"]
         agent_rows = [agent_headers]
         for i,(name,cnt) in enumerate(_ag.head(20).items(),1):
@@ -674,7 +641,6 @@ high precision. Data quality verification demonstrates {stats['dept_fill']}% dep
         story.append(tbl(agent_rows, [0.3*inch, 3.8*inch, 0.8*inch, 0.6*inch], SUCCESS))
         story.append(Spacer(1, 0.2*inch))
 
-    # FOOTER
     story.append(Spacer(1, 0.4*inch))
     story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor('#d0d7de'), spaceAfter=10))
     story.append(Paragraph(
@@ -685,10 +651,7 @@ high precision. Data quality verification demonstrates {stats['dept_fill']}% dep
     buffer.seek(0)
     return buffer
 
-# ══════════════════════════════════════════════════════════════════
-# DASHBOARD UI
-# ══════════════════════════════════════════════════════════════════
-
+# ── DASHBOARD UI ─────────────────────────────────────────────────
 badge = (' <span style="background:rgba(210,153,34,.15);color:#d29922;padding:4px 14px;'
          'border-radius:20px;font-size:.72rem;font-weight:900;border:1px solid rgba(210,153,34,.3)">🔽 FILTERED</span>') if filtered else ""
 
@@ -821,9 +784,6 @@ with tab6:
                 unsafe_allow_html=True)
     st.dataframe(sd,use_container_width=True,height=550)
 
-# ══════════════════════════════════════════════════════════════════
-# PREMIUM PDF EXPORT
-# ══════════════════════════════════════════════════════════════════
 st.markdown("---")
 sec("📄 PERFECT PDF — ENGLISH HEADERS + ARABIC DATA")
 
