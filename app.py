@@ -16,6 +16,7 @@
 # Note: Word cloud feature removed due to missing 'wordcloud' module in the environment.
 # New: Added advanced analytics as per user requirements in a new tab 'Analytics Summary'
 # Enhanced: PDF now includes all tabs' content (Overview, Issues, Departments, Agents, Trends, Data, Sub Categories, Advanced Analytics) in Arabic with perfect formatting.
+# Fixed: Improved font loading with more URLs, increased timeout, added user-agent for better download reliability. Added warnings if font or modules not loaded.
 # ================================================================
 import streamlit as st
 import pandas as pd
@@ -52,10 +53,12 @@ def load_arabic_fonts():
   
     font_urls = {
         'Amiri-Regular': [
+            "https://raw.githubusercontent.com/google/fonts/main/ofl/amiri/Amiri-Regular.ttf",
             "https://github.com/aliftype/amiri/raw/main/Amiri-Regular.ttf",
             "https://fonts.gstatic.com/s/amiri/v27/J7aRnpd8CGxBHqUpvrIw74NL.ttf",
         ],
         'Amiri-Bold': [
+            "https://raw.githubusercontent.com/google/fonts/main/ofl/amiri/Amiri-Bold.ttf",
             "https://github.com/aliftype/amiri/raw/main/Amiri-Bold.ttf",
             "https://fonts.gstatic.com/s/amiri/v27/J7acnpd8CGxBHqUpvrIGJBEoRdI.ttf",
         ],
@@ -66,26 +69,33 @@ def load_arabic_fonts():
         if not os.path.exists(path):
             for url in urls:
                 try:
-                    r = requests.get(url, timeout=20)
+                    r = requests.get(url, timeout=60, headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'})
                     if r.status_code == 200:
                         with open(path, 'wb') as f:
                             f.write(r.content)
+                        st.write(f"✅ Downloaded {font_name} from {url}")
                         break
-                except:
+                except Exception as e:
+                    st.write(f"⚠️ Failed to download from {url}: {str(e)}")
                     continue
       
         try:
             if os.path.exists(path):
                 pdfmetrics.registerFont(TTFont(font_name, path))
                 fonts_loaded[font_name] = True
-        except:
+        except Exception as e:
+            st.write(f"⚠️ Failed to register {font_name}: {str(e)}")
             fonts_loaded[font_name] = False
   
     return fonts_loaded
 FONTS = load_arabic_fonts()
-FONT_OK = FONTS.get('Amiri-Regular', False)
+FONT_OK = FONTS.get('Amiri-Regular', False) and FONTS.get('Amiri-Bold', False)
 AR_FONT = 'Amiri-Regular' if FONT_OK else 'Helvetica'
-AR_FONT_BOLD = 'Amiri-Bold' if FONTS.get('Amiri-Bold', False) else 'Helvetica-Bold'
+AR_FONT_BOLD = 'Amiri-Bold' if FONT_OK else 'Helvetica-Bold'
+if not FONT_OK:
+    st.warning("⚠️ Arabic fonts could not be loaded. PDF may show boxes instead of Arabic text. Check network or try different environment.")
+if not ARABIC_SUPPORT:
+    st.warning("⚠️ Arabic reshaper/bidi modules not installed. Install with: pip install arabic-reshaper python-bidi. Otherwise, RTL may not render properly.")
 def ar(text, max_len=None):
     """Convert Arabic text to display correctly with proper RTL"""
     t = str(text).strip()
@@ -211,7 +221,7 @@ with st.sidebar:
     st.markdown(f"<h3 style='text-align:center;color:#58a6ff!important;margin:6px 0 14px;"
                 f"font-size:1rem;font-weight:900;letter-spacing:1px'>{tx['title']}</h3>", unsafe_allow_html=True)
     st.markdown(f"<div style='text-align:center;font-size:.78rem;font-weight:700;color:{'#3fb950' if FONT_OK else '#d29922'}'>"
-                f"{'✅ Arabic Font Ready' if FONT_OK else '⚠️ Loading Font'}</div>", unsafe_allow_html=True)
+                f"{'✅ Arabic Font Ready' if FONT_OK else '⚠️ Arabic Font Failed to Load - PDF will have issues'}</div>", unsafe_allow_html=True)
     st.markdown("---")
     uploaded = st.file_uploader(tx['upload'], type=["xlsx","xls"])
     if uploaded: st.success(f"✅ {uploaded.name}")
@@ -814,25 +824,25 @@ high precision. Data quality verification demonstrates {stats['dept_fill']}% dep
         story.append(Paragraph(
             ar("أداء الموظفين (الموظفون)") if is_ar else "AGENT PERFORMANCE (AGENTS)",
             h1))
-        story.append(Spacer(1, 0.12*inch))
-        ag = (df_data.dropna(subset=[C_AGENT])
-                 .groupby([C_AGENT,'_short']).size()
-                 .reset_index(name='Tickets')
-                 .sort_values('Tickets',ascending=False)
-                 .head(15))
-        fig = px.bar(ag,x='Tickets',y='_short',orientation='h',color='Tickets',
-                     color_continuous_scale='Viridis',template='plotly_white',text='Tickets')
-        fig.update_layout(yaxis={'categoryorder':'total ascending','title':'Agent'},
-                          showlegend=False,coloraxis_showscale=False)
-        add_chart(fig, 7.5, 3.5)
-        # Table
-        agent_headers = ["#", "Agent Name", "Tickets", "%"]
-        agent_rows = [agent_headers]
-        for i,(name,cnt) in enumerate(df_data[C_AGENT].value_counts().head(20).items(),1):
-            pct = round(cnt/total*100,1)
-            agent_rows.append([str(i), ar(str(name), max_len=42), f"{int(cnt):,}", f"{pct}%"])
-        story.append(tbl(agent_rows, [0.3*inch, 3.8*inch, 0.8*inch, 0.6*inch], SUCCESS))
-        story.append(Spacer(1, 0.2*inch))
+    story.append(Spacer(1, 0.12*inch))
+    ag = (df_data.dropna(subset=[C_AGENT])
+             .groupby([C_AGENT,'_short']).size()
+             .reset_index(name='Tickets')
+             .sort_values('Tickets',ascending=False)
+             .head(15))
+    fig = px.bar(ag,x='Tickets',y='_short',orientation='h',color='Tickets',
+                 color_continuous_scale='Viridis',template='plotly_white',text='Tickets')
+    fig.update_layout(yaxis={'categoryorder':'total ascending','title':'Agent'},
+                      showlegend=False,coloraxis_showscale=False)
+    add_chart(fig, 7.5, 3.5)
+    # Table
+    agent_headers = ["#", "Agent Name", "Tickets", "%"]
+    agent_rows = [agent_headers]
+    for i,(name,cnt) in enumerate(df_data[C_AGENT].value_counts().head(20).items(),1):
+        pct = round(cnt/total*100,1)
+        agent_rows.append([str(i), ar(str(name), max_len=42), f"{int(cnt):,}", f"{pct}%"])
+    story.append(tbl(agent_rows, [0.3*inch, 3.8*inch, 0.8*inch, 0.6*inch], SUCCESS))
+    story.append(Spacer(1, 0.2*inch))
     story.append(PageBreak())
     # ══════════════════════════════════════════════════════════════
     # TRENDS TAB
