@@ -15,6 +15,8 @@
 # 10. Added sunburst chart for hierarchical view (Department > Service > Main Category) in Overview tab.
 # Note: Word cloud feature removed due to missing 'wordcloud' module in the environment.
 # New: Added advanced analytics as per user requirements in a new tab 'Analytics Summary'
+# New: Added download button for analytics data as Excel (in Arabic format) for PPT use
+# Fixed: Date conversion to datetime for proper calculations, fixed timedelta error
 # ================================================================
 import streamlit as st
 import pandas as pd
@@ -183,7 +185,8 @@ T = {
         'sub_filter': '📑 الفئة الفرعية', 'agent_filter': '👨‍💻 الموظف',
         'tab_sub': '📑 الفئات الفرعية', 'avg_tickets': 'متوسط التذاكر لكل موظف',
         'unique_subs': 'الفئات الفرعية الفريدة',
-        'tab_analytics': '📈 تحليلات متقدمة'
+        'tab_analytics': '📈 تحليلات متقدمة',
+        'download_excel': '⬇️ تحميل التحليلات كملف Excel (بالعربية)'
     },
     'EN': {
         'title':'IT Helpdesk Analytics','subtitle':'Premium Enterprise Report',
@@ -197,7 +200,8 @@ T = {
         'sub_filter': '📑 Sub Category', 'agent_filter': '👨‍💻 Agent',
         'tab_sub': '📑 Sub Categories', 'avg_tickets': 'Avg Tickets/Agent',
         'unique_subs': 'Unique Sub Categories',
-        'tab_analytics': '📈 Advanced Analytics'
+        'tab_analytics': '📈 Advanced Analytics',
+        'download_excel': '⬇️ Download Analytics as Excel (in Arabic)'
     }
 }
 # ── SIDEBAR ──────────────────────────────────────────────────────
@@ -271,6 +275,15 @@ def load_data(rb):
     # ✅ RENAME COLUMNS TO ENGLISH
     df = df.rename(columns=COLUMN_MAP)
    
+    # Convert Excel float dates to datetime
+    excel_origin = pd.to_datetime('1899-12-30')
+    if C_CREATE in df:
+        df[C_CREATE] = excel_origin + pd.to_timedelta(df[C_CREATE], unit='D')
+    if C_CLOSE in df:
+        df[C_CLOSE] = excel_origin + pd.to_timedelta(df[C_CLOSE], unit='D')
+    if C_RESOLVE in df:
+        df[C_RESOLVE] = excel_origin + pd.to_timedelta(df[C_RESOLVE], unit='D')
+   
     # Calculate accuracy stats
     acc = {
         'total': len(df),
@@ -281,15 +294,15 @@ def load_data(rb):
     }
 
     # Advanced analytics calculations
-    # Filter closed tickets - include 'Closed', 'Resolved', 'Close (Not Incident)'
-    closed_statuses = ['Closed', 'Resolved', 'Close (Not Incident)']
+    # Filter closed tickets - include 'Closed', 'Resolved', 'Close (Not Incident)', 'Waiting for 3rd Party'
+    closed_statuses = ['Closed', 'Resolved', 'Close (Not Incident)', 'Waiting for 3rd Party']
     df_closed = df[df['Status'].isin(closed_statuses)].copy()
 
     # Use Closing Date if not NaN, else Resolution Date
     df_closed['Effective Close Date'] = df_closed['Closing Date'].where(df_closed['Closing Date'].notna(), df_closed['Resolution Date'])
 
-    # Drop if Effective Close Date NaN
-    df_closed = df_closed[df_closed['Effective Close Date'].notna()]
+    # Drop if Effective Close Date NaN or Creation Date NaN
+    df_closed = df_closed[df_closed['Effective Close Date'].notna() & df_closed['Creation Date'].notna()]
 
     # Resolution time in days
     df_closed['Resolution Time'] = (df_closed['Effective Close Date'] - df_closed['Creation Date']).dt.total_seconds() / 86400
@@ -431,6 +444,55 @@ def fig_to_png(fig, w=900, h=420):
         return fig.to_image(format="png", width=w, height=h, scale=2)
     except:
         return None
+# Function to generate Excel with analytics data in Arabic
+def generate_analytics_excel(analytics, lang='AR'):
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        # Overall average
+        pd.DataFrame({'المتوسط العام للسنة': [analytics['overall_avg']]}).to_excel(writer, sheet_name='متوسط عام', index=False)
+        
+        # Average by priority
+        analytics['avg_by_priority'].reset_index().rename(columns={'index': 'الأولوية', 'Resolution Time': 'المتوسط (أيام)'}).to_excel(writer, sheet_name='حسب الأولوية', index=False)
+        
+        # Average by dept
+        analytics['avg_by_dept'].reset_index().rename(columns={'Department': 'الإدارة', 'Resolution Time': 'المتوسط (أيام)'}).to_excel(writer, sheet_name='حسب الإدارة', index=False)
+        
+        # Average by cause
+        analytics['avg_by_cause'].reset_index().rename(columns={'Main Category': 'السبب', 'Resolution Time': 'المتوسط (أيام)'}).to_excel(writer, sheet_name='حسب السبب', index=False)
+        
+        # Average by tech
+        analytics['avg_by_tech'].reset_index().rename(columns={'Assigned To': 'الفني', 'Resolution Time': 'المتوسط (أيام)'}).to_excel(writer, sheet_name='حسب الفني', index=False)
+        
+        # Monthly average
+        analytics['avg_monthly'].reset_index().rename(columns={'Month': 'الشهر', 'Resolution Time': 'المتوسط (أيام)'}).to_excel(writer, sheet_name='شهري', index=False)
+        
+        # Priority dist
+        analytics['priority_dist'].reset_index().rename(columns={'index': 'الأولوية', 'Impact': 'النسبة (%)'}).to_excel(writer, sheet_name='توزيع الأولويات', index=False)
+        
+        # Top causes
+        pd.DataFrame({'السبب': analytics['cause_counts'].index, 'العدد': analytics['cause_counts'], 'النسبة (%)': analytics['top_causes_pct']}).to_excel(writer, sheet_name='أعلى 10 أسباب', index=False)
+        
+        # Dept counts etc
+        pd.DataFrame({'الإدارة': analytics['dept_counts'].index, 'عدد التذاكر': analytics['dept_counts'], 'متوسط': analytics['avg_by_dept'], 'نسبة non-Low': analytics['dept_non_low_pct']}).to_excel(writer, sheet_name='لكل إدارة', index=False)
+        
+        # Tech counts etc
+        pd.DataFrame({'الفني': analytics['tech_counts'].index, 'عدد التذاكر': analytics['tech_counts'], 'متوسط': analytics['avg_by_tech'], 'عدد non-Low': analytics['tech_non_low_counts']}).to_excel(writer, sheet_name='لكل فني', index=False)
+        
+        # Monthly counts etc
+        pd.DataFrame({'الشهر': analytics['monthly_counts'].index, 'عدد': analytics['monthly_counts'], 'متوسط': analytics['avg_monthly'], 'نسبة non-Low': analytics['monthly_non_low_pct']}).to_excel(writer, sheet_name='شهرياً', index=False)
+        
+        # Tech table
+        analytics['tech_table'].to_excel(writer, sheet_name='جدول الفنيين', index=False)
+        
+        # Percentages
+        pd.DataFrame({
+            'نسبة البلاغات خلال 24 ساعة': [analytics['pct_24h']],
+            'نسبة >3 أيام': [analytics['pct_gt3d']],
+            'نسبة >7 أيام': [analytics['pct_gt7d']]
+        }).to_excel(writer, sheet_name='نسب إضافية', index=False)
+    
+    output.seek(0)
+    return output
 # ══════════════════════════════════════════════════════════════════
 # PERFECT PDF GENERATOR (English Headers + Arabic Content)
 # ══════════════════════════════════════════════════════════════════
@@ -948,46 +1010,46 @@ with tab8:
     
     # Average by priority
     st.markdown("### المتوسط حسب الأولوية")
-    st.dataframe(analytics['avg_by_priority'])
-
+    st.dataframe(analytics['avg_by_priority'].reset_index().rename(columns={'Impact': 'الأولوية', 'Resolution Time': 'المتوسط (أيام)'}))
+    
     # Average by department
     st.markdown("### المتوسط حسب الإدارة (أعلى 10)")
-    st.dataframe(analytics['avg_by_dept'])
-
+    st.dataframe(analytics['avg_by_dept'].reset_index().rename(columns={'Department': 'الإدارة', 'Resolution Time': 'المتوسط (أيام)'}))
+    
     # Average by cause
     st.markdown("### المتوسط حسب السبب (أعلى 10)")
-    st.dataframe(analytics['avg_by_cause'])
+    st.dataframe(analytics['avg_by_cause'].reset_index().rename(columns={'Main Category': 'السبب', 'Resolution Time': 'المتوسط (أيام)'}))
 
     # Average by technician
     st.markdown("### المتوسط حسب الفني (أعلى 10)")
-    st.dataframe(analytics['avg_by_tech'])
+    st.dataframe(analytics['avg_by_tech'].reset_index().rename(columns={'Assigned To': 'الفني', 'Resolution Time': 'المتوسط (أيام)'}))
 
     # Monthly average
     st.markdown("### المتوسط الشهري")
-    st.dataframe(analytics['avg_monthly'])
+    st.dataframe(analytics['avg_monthly'].reset_index().rename(columns={'Month': 'الشهر', 'Resolution Time': 'المتوسط (أيام)'}))
 
     # Priority distribution
     st.markdown("### توزيع الأولويات")
-    st.dataframe(analytics['priority_dist'])
+    st.dataframe(analytics['priority_dist'].reset_index().rename(columns={'index': 'الأولوية', 'Impact': 'النسبة (%)'}))
 
     # Top 10 causes
     st.markdown("### أعلى 10 أسباب")
-    top_causes_df = pd.DataFrame({'السبب': analytics['cause_counts'], 'النسبة': analytics['top_causes_pct']})
+    top_causes_df = pd.DataFrame({'السبب': analytics['cause_counts'].index, 'العدد': analytics['cause_counts'], 'النسبة (%)': analytics['top_causes_pct']})
     st.dataframe(top_causes_df)
 
     # Per department
-    st.markdown("### لكل إدارة (عدد, متوسط, نسبة High)")
-    dept_df = pd.DataFrame({'عدد التذاكر': analytics['dept_counts'], 'متوسط': analytics['avg_by_dept'], 'نسبة non-Low': analytics['dept_non_low_pct']})
+    st.markdown("### لكل إدارة (عدد, متوسط, نسبة non-Low)")
+    dept_df = pd.DataFrame({'الإدارة': analytics['dept_counts'].index, 'عدد التذاكر': analytics['dept_counts'], 'متوسط': analytics['avg_by_dept'], 'نسبة non-Low': analytics['dept_non_low_pct']})
     st.dataframe(dept_df)
 
     # Per technician
     st.markdown("### لكل فني (عدد, متوسط, عدد non-Low)")
-    tech_df = pd.DataFrame({'عدد التذاكر': analytics['tech_counts'], 'متوسط': analytics['avg_by_tech'], 'عدد non-Low': analytics['tech_non_low_counts']})
+    tech_df = pd.DataFrame({'الفني': analytics['tech_counts'].index, 'عدد التذاكر': analytics['tech_counts'], 'متوسط': analytics['avg_by_tech'], 'عدد non-Low': analytics['tech_non_low_counts']})
     st.dataframe(tech_df)
 
     # Monthly
     st.markdown("### شهرياً (عدد, متوسط, نسبة non-Low)")
-    monthly_df = pd.DataFrame({'عدد': analytics['monthly_counts'], 'متوسط': analytics['avg_monthly'], 'نسبة non-Low': analytics['monthly_non_low_pct']})
+    monthly_df = pd.DataFrame({'الشهر': analytics['monthly_counts'].index, 'عدد': analytics['monthly_counts'], 'متوسط': analytics['avg_monthly'], 'نسبة non-Low': analytics['monthly_non_low_pct']})
     st.dataframe(monthly_df)
 
     # Tech table
@@ -998,6 +1060,16 @@ with tab8:
     st.markdown(f"### نسبة البلاغات المغلقة خلال 24 ساعة: {analytics['pct_24h']:.2f}%")
     st.markdown(f"### نسبة البلاغات >3 أيام: {analytics['pct_gt3d']:.2f}%")
     st.markdown(f"### نسبة البلاغات >7 أيام: {analytics['pct_gt7d']:.2f}%")
+
+    # Download button for Excel
+    excel_buffer = generate_analytics_excel(analytics, lang)
+    st.download_button(
+        label=tx['download_excel'],
+        data=excel_buffer,
+        file_name="analytics_summary.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True
+    )
 # ══════════════════════════════════════════════════════════════════
 # PREMIUM PDF EXPORT
 # ══════════════════════════════════════════════════════════════════
