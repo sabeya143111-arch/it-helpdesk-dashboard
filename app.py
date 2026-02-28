@@ -14,6 +14,7 @@
 # 9. Added heatmap for Department vs Issue in Trends tab.
 # 10. Added sunburst chart for hierarchical view (Department > Service > Main Category) in Overview tab.
 # Note: Word cloud feature removed due to missing 'wordcloud' module in the environment.
+# New: Added advanced analytics as per user requirements in a new tab 'Analytics Summary'
 # ================================================================
 import streamlit as st
 import pandas as pd
@@ -21,7 +22,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import io, os, requests
-from datetime import datetime
+from datetime import datetime, timedelta
 from reportlab.lib.pagesizes import A4, landscape, letter
 from reportlab.lib.units import inch, cm
 from reportlab.lib import colors
@@ -139,7 +140,12 @@ COLUMN_MAP = {
     'الخدمة': 'Service',
     'التصنيف الرئيسي': 'Main Category',
     'التصنيف الفرعي': 'Sub Category',
-    'مسند الى': 'Assigned To'
+    'مسند الى': 'Assigned To',
+    'التأثير': 'Impact',
+    'تاريخ الإنشاء': 'Creation Date',
+    'تاريخ ووقت الاغلاق': 'Closing Date',
+    'تاريخ حل البلاغ': 'Resolution Date',
+    'الحالة': 'Status'
 }
 # Original Arabic column names for data loading
 C_DEPT_AR = 'إدارة العميل'
@@ -147,12 +153,22 @@ C_SVC_AR = 'الخدمة'
 C_MAIN_AR = 'التصنيف الرئيسي'
 C_SUB_AR = 'التصنيف الفرعي'
 C_AGENT_AR = 'مسند الى'
+C_IMPACT_AR = 'التأثير'
+C_CREATE_AR = 'تاريخ الإنشاء'
+C_CLOSE_AR = 'تاريخ ووقت الاغلاق'
+C_RESOLVE_AR = 'تاريخ حل البلاغ'
+C_STATUS_AR = 'الحالة'
 # English names for PDF
 C_DEPT = 'Department'
 C_SVC = 'Service'
 C_MAIN = 'Main Category'
 C_SUB = 'Sub Category'
 C_AGENT = 'Assigned To'
+C_IMPACT = 'Impact'
+C_CREATE = 'Creation Date'
+C_CLOSE = 'Closing Date'
+C_RESOLVE = 'Resolution Date'
+C_STATUS = 'Status'
 # ── TRANSLATIONS ─────────────────────────────────────────────────
 T = {
     'AR': {
@@ -166,7 +182,8 @@ T = {
         'tab_raw':'🗃️ البيانات','kpi_sec':'📌 المؤشرات','ai_insights':'🤖 الرؤى',
         'sub_filter': '📑 الفئة الفرعية', 'agent_filter': '👨‍💻 الموظف',
         'tab_sub': '📑 الفئات الفرعية', 'avg_tickets': 'متوسط التذاكر لكل موظف',
-        'unique_subs': 'الفئات الفرعية الفريدة'
+        'unique_subs': 'الفئات الفرعية الفريدة',
+        'tab_analytics': '📈 تحليلات متقدمة'
     },
     'EN': {
         'title':'IT Helpdesk Analytics','subtitle':'Premium Enterprise Report',
@@ -179,7 +196,8 @@ T = {
         'tab_raw':'🗃️ Data','kpi_sec':'📌 KPIs','ai_insights':'🤖 Insights',
         'sub_filter': '📑 Sub Category', 'agent_filter': '👨‍💻 Agent',
         'tab_sub': '📑 Sub Categories', 'avg_tickets': 'Avg Tickets/Agent',
-        'unique_subs': 'Unique Sub Categories'
+        'unique_subs': 'Unique Sub Categories',
+        'tab_analytics': '📈 Advanced Analytics'
     }
 }
 # ── SIDEBAR ──────────────────────────────────────────────────────
@@ -224,7 +242,7 @@ def load_data(rb):
         df = df[~df[C_DEPT_AR].astype(str).str.contains('Grand Total|المجموع', na=False)]
    
     # Keep only relevant columns
-    keep = [c for c in [C_DEPT_AR, C_SVC_AR, C_MAIN_AR, C_SUB_AR, C_AGENT_AR] if c in df.columns]
+    keep = [c for c in [C_DEPT_AR, C_SVC_AR, C_MAIN_AR, C_SUB_AR, C_AGENT_AR, C_IMPACT_AR, C_CREATE_AR, C_CLOSE_AR, C_RESOLVE_AR, C_STATUS_AR] if c in df.columns]
     df = df[keep].copy()
    
     # Forward fill for merged cells
@@ -261,11 +279,104 @@ def load_data(rb):
         'main_fill': round(df[C_MAIN].notna().sum()/len(df)*100,1) if C_MAIN in df.columns else 0,
         'agent_fill': round(df[C_AGENT].notna().sum()/len(df)*100,1) if C_AGENT in df.columns else 0,
     }
+
+    # Advanced analytics calculations
+    # Filter closed tickets - include 'Closed', 'Resolved', 'Close (Not Incident)'
+    closed_statuses = ['Closed', 'Resolved', 'Close (Not Incident)']
+    df_closed = df[df['Status'].isin(closed_statuses)].copy()
+
+    # Use Closing Date if not NaN, else Resolution Date
+    df_closed['Effective Close Date'] = df_closed['Closing Date'].where(df_closed['Closing Date'].notna(), df_closed['Resolution Date'])
+
+    # Drop if Effective Close Date NaN
+    df_closed = df_closed[df_closed['Effective Close Date'].notna()]
+
+    # Resolution time in days
+    df_closed['Resolution Time'] = (df_closed['Effective Close Date'] - df_closed['Creation Date']).dt.total_seconds() / 86400
+
+    # Remove invalid (negative or NaN)
+    df_closed = df_closed[df_closed['Resolution Time'] > 0].dropna(subset=['Resolution Time'])
+
+    # Overall average
+    overall_avg = df_closed['Resolution Time'].mean()
+
+    # Average by priority
+    avg_by_priority = df_closed.groupby('Impact')['Resolution Time'].mean()
+
+    # Average by department (top 10 by count)
+    dept_counts = df_closed['Department'].value_counts().head(10)
+    avg_by_dept = df_closed.groupby('Department')['Resolution Time'].mean().reindex(dept_counts.index)
+
+    # Average by cause (top 10)
+    cause_counts = df_closed['Main Category'].value_counts().head(10)
+    avg_by_cause = df_closed.groupby('Main Category')['Resolution Time'].mean().reindex(cause_counts.index)
+
+    # Average by technician (top 10)
+    tech_counts = df_closed['Assigned To'].value_counts().head(10)
+    avg_by_tech = df_closed.groupby('Assigned To')['Resolution Time'].mean().reindex(tech_counts.index)
+
+    # Monthly average
+    df_closed['Month'] = df_closed['Creation Date'].dt.to_period('M')
+    monthly_counts = df_closed['Month'].value_counts().sort_index()
+    avg_monthly = df_closed.groupby('Month')['Resolution Time'].mean().sort_index()
+
+    # Priority distribution
+    priority_dist = df_closed['Impact'].value_counts(normalize=True) * 100
+
+    # Top 10 causes pct
+    top_causes_pct = (cause_counts / len(df_closed)) * 100
+
+    # Per department non-low %
+    non_low = df_closed[df_closed['Impact'] != 'Low']
+    dept_non_low_counts = non_low.groupby('Department').size()
+    dept_total = df_closed.groupby('Department').size()
+    dept_non_low_pct = (dept_non_low_counts / dept_total * 100).reindex(dept_counts.index).fillna(0)
+
+    # Per tech non-low counts (as number)
+    tech_non_low_counts = non_low.groupby('Assigned To').size().reindex(tech_counts.index).fillna(0)
+
+    # Monthly non-low pct
+    monthly_non_low_counts = non_low.groupby('Month').size()
+    monthly_non_low_pct = (monthly_non_low_counts / monthly_counts * 100).fillna(0)
+
+    # Tech table
+    tech_table = pd.DataFrame({
+        'الفني': tech_counts.index,
+        'عدد التذاكر': tech_counts,
+        'متوسط وقت الحل': avg_by_tech
+    }).reset_index(drop=True)
+
+    # Percentages
+    pct_24h = (df_closed['Resolution Time'] <= 1).mean() * 100
+    pct_gt3d = (df_closed['Resolution Time'] > 3).mean() * 100
+    pct_gt7d = (df_closed['Resolution Time'] > 7).mean() * 100
+
+    analytics = {
+        'overall_avg': overall_avg,
+        'avg_by_priority': avg_by_priority,
+        'avg_by_dept': avg_by_dept,
+        'avg_by_cause': avg_by_cause,
+        'avg_by_tech': avg_by_tech,
+        'avg_monthly': avg_monthly,
+        'priority_dist': priority_dist,
+        'cause_counts': cause_counts,
+        'top_causes_pct': top_causes_pct,
+        'dept_counts': dept_counts,
+        'dept_non_low_pct': dept_non_low_pct,
+        'tech_counts': tech_counts,
+        'tech_non_low_counts': tech_non_low_counts,
+        'monthly_counts': monthly_counts,
+        'monthly_non_low_pct': monthly_non_low_pct,
+        'tech_table': tech_table,
+        'pct_24h': pct_24h,
+        'pct_gt3d': pct_gt3d,
+        'pct_gt7d': pct_gt7d
+    }
    
-    return df, acc
+    return df, acc, analytics
 try:
     rb = uploaded.read()
-    df, acc = load_data(rb)
+    df, acc, analytics = load_data(rb)
 except Exception as e:
     st.error(f"❌ {e}"); st.stop()
 if df.empty: st.error("❌ No data"); st.stop()
@@ -689,10 +800,10 @@ st.markdown(
     f"<span>🔽 <b style='color:#58a6ff'>{len(dff):,}</b> shown</span>"
     f"{badge}</div></div></div></div>",
     unsafe_allow_html=True)
-# New Feature 3: Added Sub Category tab
-tab1,tab2,tab3,tab4,tab5,tab6,tab7 = st.tabs([
+# Add new tab for Analytics
+tab1,tab2,tab3,tab4,tab5,tab6,tab7,tab8 = st.tabs([
     tx['tab_overview'], tx['tab_issues'], tx['tab_dept'],
-    tx['tab_agents'], tx['tab_trend'], tx['tab_raw'], tx['tab_sub']])
+    tx['tab_agents'], tx['tab_trend'], tx['tab_raw'], tx['tab_sub'], tx['tab_analytics']])
 with tab1:
     sec("📌 KEY PERFORMANCE INDICATORS")
     k1,k2,k3,k4,k5,k6,k7 = st.columns(7)  # Expanded for new KPIs
@@ -829,6 +940,64 @@ with tab7:
     fig_sub.update_layout(yaxis={'categoryorder':'total ascending'}, showlegend=False, coloraxis_showscale=False)
     st.plotly_chart(ccfg(fig_sub, max(400, top_n*35)), use_container_width=True)
     st.dataframe(sub_data, use_container_width=True, height=450)
+# New tab for Analytics Summary
+with tab8:
+    sec("📈 تحليلات متقدمة" if lang == 'AR' else "Advanced Analytics")
+    # Display overall average
+    st.markdown(f"### المتوسط العام للسنة: {analytics['overall_avg']:.2f} يوم")
+    
+    # Average by priority
+    st.markdown("### المتوسط حسب الأولوية")
+    st.dataframe(analytics['avg_by_priority'])
+
+    # Average by department
+    st.markdown("### المتوسط حسب الإدارة (أعلى 10)")
+    st.dataframe(analytics['avg_by_dept'])
+
+    # Average by cause
+    st.markdown("### المتوسط حسب السبب (أعلى 10)")
+    st.dataframe(analytics['avg_by_cause'])
+
+    # Average by technician
+    st.markdown("### المتوسط حسب الفني (أعلى 10)")
+    st.dataframe(analytics['avg_by_tech'])
+
+    # Monthly average
+    st.markdown("### المتوسط الشهري")
+    st.dataframe(analytics['avg_monthly'])
+
+    # Priority distribution
+    st.markdown("### توزيع الأولويات")
+    st.dataframe(analytics['priority_dist'])
+
+    # Top 10 causes
+    st.markdown("### أعلى 10 أسباب")
+    top_causes_df = pd.DataFrame({'السبب': analytics['cause_counts'], 'النسبة': analytics['top_causes_pct']})
+    st.dataframe(top_causes_df)
+
+    # Per department
+    st.markdown("### لكل إدارة (عدد, متوسط, نسبة High)")
+    dept_df = pd.DataFrame({'عدد التذاكر': analytics['dept_counts'], 'متوسط': analytics['avg_by_dept'], 'نسبة non-Low': analytics['dept_non_low_pct']})
+    st.dataframe(dept_df)
+
+    # Per technician
+    st.markdown("### لكل فني (عدد, متوسط, عدد non-Low)")
+    tech_df = pd.DataFrame({'عدد التذاكر': analytics['tech_counts'], 'متوسط': analytics['avg_by_tech'], 'عدد non-Low': analytics['tech_non_low_counts']})
+    st.dataframe(tech_df)
+
+    # Monthly
+    st.markdown("### شهرياً (عدد, متوسط, نسبة non-Low)")
+    monthly_df = pd.DataFrame({'عدد': analytics['monthly_counts'], 'متوسط': analytics['avg_monthly'], 'نسبة non-Low': analytics['monthly_non_low_pct']})
+    st.dataframe(monthly_df)
+
+    # Tech table
+    st.markdown("### جدول الفنيين")
+    st.dataframe(analytics['tech_table'])
+
+    # Percentages
+    st.markdown(f"### نسبة البلاغات المغلقة خلال 24 ساعة: {analytics['pct_24h']:.2f}%")
+    st.markdown(f"### نسبة البلاغات >3 أيام: {analytics['pct_gt3d']:.2f}%")
+    st.markdown(f"### نسبة البلاغات >7 أيام: {analytics['pct_gt7d']:.2f}%")
 # ══════════════════════════════════════════════════════════════════
 # PREMIUM PDF EXPORT
 # ══════════════════════════════════════════════════════════════════
