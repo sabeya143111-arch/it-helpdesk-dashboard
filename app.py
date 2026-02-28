@@ -43,7 +43,7 @@ except ImportError:
     ARABIC_SUPPORT = False
     def reshape(t): return str(t)
     def get_display(t): return str(t)
-st.set_page_config(page_title="IT Helpdesk Analytics", page_icon="🖥️",
+st.set_page_config(page_title="REPORT FOR TICKET RAISED", page_icon="🖥️",
                    layout="wide", initial_sidebar_state="expanded")
 # ── PERFECT ARABIC FONT LOADER ───────────────────────────────────
 @st.cache_resource
