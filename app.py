@@ -1,7 +1,5 @@
 # ================================================================
-#   IT HELPDESK ANALYTICS — MANAGER EDITION
-#   Arabic Helpdesk Data + Advanced Resolution & SLA Metrics
-#   Author: Tarique
+#   IT HELPDESK ANALYTICS — MANAGER EDITION (WITH ORIGINAL UI)
 # ================================================================
 
 import streamlit as st
@@ -13,7 +11,7 @@ import io, os, requests
 from datetime import datetime, timedelta
 
 # ================================================================
-#  STREAMLIT PAGE CONFIG
+#  PAGE CONFIG
 # ================================================================
 st.set_page_config(
     page_title="IT Helpdesk Analytics",
@@ -23,7 +21,7 @@ st.set_page_config(
 )
 
 # ================================================================
-#  CSS (SIMILAR PREMIUM STYLE)
+#  CSS (ORIGINAL PREMIUM STYLE)
 # ================================================================
 st.markdown("""
 <style>
@@ -31,7 +29,7 @@ st.markdown("""
 *{font-family:'Inter',sans-serif!important;box-sizing:border-box}
 .stApp{background:linear-gradient(135deg,#0a0e27 0%,#1a1f3a 50%,#0a0e27 100%)!important}
 .main .block-container{background:transparent!important;padding-top:.8rem!important;max-width:100%!important}
-[data-testid="stSidebar"]{background:linear-gradient(180deg,#0d1117,#161b22,#0d1117)!important;border-right:2px solid rgba(88,166,255,.2)!important}
+[data-testid="stSidebar"]{background:linear-gradient(180deg,#0d1117,#161b22,#0d1117)!important;border-right:2px solid rgba(88,166,255,.2)!important;}
 
 /* KPIs */
 .kpi-premium{background:linear-gradient(145deg,#1a1f3a,#2d3561);border:2px solid rgba(88,166,255,.2);border-top:4px solid #58a6ff;border-radius:20px;padding:20px 14px 18px;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,.4);transition:all .4s;margin-bottom:14px}
@@ -49,7 +47,7 @@ st.markdown("""
 .insight-badge{display:inline-block;background:rgba(88,166,255,.15);color:#58a6ff;padding:4px 12px;border-radius:20px;font-size:.68rem;font-weight:900;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px}
 .insight-text{color:#c9d1d9;font-size:.88rem;line-height:1.7;font-weight:400}
 
-/* Download button (if needed later) */
+/* Download button (for future) */
 .stDownloadButton>button{
     background:linear-gradient(135deg,#1f6feb,#58a6ff)!important;
     color:white!important;border:none!important;border-radius:16px!important;
@@ -64,8 +62,16 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ================================================================
-#  ARABIC COLUMN DEFINITIONS (FROM YOUR EXCEL)
+#  ARABIC COLUMN DEFINITIONS (YOUR LAST FILE STRUCTURE) [file:55]
 # ================================================================
+# Old pivot fields (from your first app)
+C_DEPT_AR = 'إدارة العميل'
+C_SVC_AR = 'الخدمة'
+C_MAIN_AR = 'التصنيف الرئيسي'
+C_SUB_AR = 'التصنيف الفرعي'
+C_AGENT_AR = 'مسند الى'
+
+# Ticket-level fields
 AR_COL_ID       = 'رقم البلاغ'
 AR_COL_STATUS   = 'الحالة'
 AR_COL_CLIENT   = 'العميل'
@@ -109,7 +115,7 @@ C_REASON    = 'Reason'
 C_RESOLVED_BY = 'Resolved By'
 
 # ================================================================
-#  SIDEBAR
+#  SIDEBAR (same style + file upload)
 # ================================================================
 with st.sidebar:
     st.markdown(
@@ -125,7 +131,7 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
     st.markdown("---")
-    uploaded = st.file_uploader("📂 Upload Helpdesk Excel", type=["xlsx", "xls"])
+    uploaded = st.file_uploader("📂 Upload Excel (Arabic)", type=["xlsx", "xls"])
     if uploaded:
         st.success(f"✅ {uploaded.name}")
 
@@ -136,38 +142,41 @@ if not uploaded:
         "<div style='background:linear-gradient(135deg,#1f6feb,#58a6ff);border-radius:32px;"
         "padding:28px;font-size:4rem;margin-bottom:32px;box-shadow:0 20px 60px rgba(31,111,235,.4)'>🖥️</div>"
         "<h1 style='color:#58a6ff;font-size:2.8rem;font-weight:900;margin:0 0 16px'>IT Helpdesk Analytics</h1>"
-        "<p style='color:#7d8590;font-size:1.05rem;font-weight:500'>Upload the Arabic report Excel file to start analysis</p></div>",
+        "<p style='color:#7d8590;font-size:1.05rem;font-weight:500'>Upload the report to see full dashboard</p></div>",
         unsafe_allow_html=True,
     )
     st.stop()
 
 # ================================================================
-#  DATA LOADER (WORKS WITH YOUR ARABIC EXCEL)  [file:55]
+#  DATA LOADER (PRESERVE OLD PIVOT + ADD TICKET METRICS) [file:55]
 # ================================================================
 @st.cache_data(show_spinner="⚙️ Processing data...")
 def load_data(raw_bytes: bytes):
-    # Detect header row where رقم البلاغ appears
+    # Detect header row where either رقم البلاغ or إدارة العميل appears
     best_header = 0
     for h in [0, 1, 2, 3, 4, 5]:
         try:
             tmp = pd.read_excel(io.BytesIO(raw_bytes), sheet_name=0, header=h)
-            if AR_COL_ID in tmp.columns:
+            if AR_COL_ID in tmp.columns or C_DEPT_AR in tmp.columns:
                 best_header = h
                 break
         except Exception:
             continue
 
-    df = pd.read_excel(io.BytesIO(raw_bytes), sheet_name=0, header=best_header)
+    df_raw = pd.read_excel(io.BytesIO(raw_bytes), sheet_name=0, header=best_header)
 
-    # Remove total rows etc.
-    for col in df.columns:
-        if df[col].dtype == 'object':
-            df = df[~df[col].astype(str).str.contains(
+    # Remove grand totals etc.
+    for col in df_raw.columns:
+        if df_raw[col].dtype == 'object':
+            df_raw = df_raw[~df_raw[col].astype(str).str.contains(
                 'Grand Total|المجموع|الإجمالي', na=False, case=False
             )]
 
-    # Arabic → internal rename
-    rename_map = {
+    # Make a copy for ticket-level analysis
+    df_ticket = df_raw.copy()
+
+    # Arabic → internal rename for ticket-level fields
+    rename_map_ticket = {
         AR_COL_ID: C_ID,
         AR_COL_STATUS: C_STATUS,
         AR_COL_CLIENT: C_CLIENT,
@@ -188,71 +197,69 @@ def load_data(raw_bytes: bytes):
         AR_COL_SOLUTION: C_REASON,
         AR_COL_RESOLVED_BY: C_RESOLVED_BY,
     }
-    df = df.rename(columns=rename_map)
+    df_ticket = df_ticket.rename(columns=rename_map_ticket)
 
-    # Keep only relevant columns
-    keep_cols = [c for c in [
+    keep_cols_ticket = [c for c in [
         C_ID, C_STATUS, C_CLIENT, C_DEPT, C_SUMMARY, C_SERVICE,
         C_MAIN, C_SUB, C_IMPACT, C_URGENCY, C_AGENT,
         C_OPEN, C_UPDATE, C_RESOLVE, C_CLOSE,
         C_RESP_SLA, C_RES_SLA, C_REASON, C_RESOLVED_BY
-    ] if c in df.columns]
-    df = df[keep_cols].copy()
+    ] if c in df_ticket.columns]
+    df_ticket = df_ticket[keep_cols_ticket].copy()
 
-    # Forward fill merged-like columns
+    # Forward fill for merged department/service/main/sub
     for c in [C_DEPT, C_SERVICE, C_MAIN, C_SUB]:
-        if c in df.columns:
-            df[c] = df[c].replace('', pd.NA).ffill()
+        if c in df_ticket.columns:
+            df_ticket[c] = df_ticket[c].replace('', pd.NA).ffill()
 
-    # Clean Agent
-    if C_AGENT in df.columns:
-        df[C_AGENT] = df[C_AGENT].astype(str).str.strip()
-        df[C_AGENT] = df[C_AGENT].replace(
+    # Clean agent
+    if C_AGENT in df_ticket.columns:
+        df_ticket[C_AGENT] = df_ticket[C_AGENT].astype(str).str.strip()
+        df_ticket[C_AGENT] = df_ticket[C_AGENT].replace(
             {'nan': pd.NA, '': pd.NA, 'Agent': pd.NA, 'مسند الى': pd.NA}
         )
-        df['_Agent Short'] = (
-            df[C_AGENT]
+        df_ticket['_Agent Short'] = (
+            df_ticket[C_AGENT]
             .str.replace('−متعاقد', '', regex=False)
             .str.replace('-متعاقد', '', regex=False)
             .str.strip()
         )
     else:
-        df['_Agent Short'] = pd.NA
+        df_ticket['_Agent Short'] = pd.NA
 
     # Parse dates
     for col in [C_OPEN, C_UPDATE, C_RESOLVE, C_CLOSE]:
-        if col in df.columns:
-            df[col] = pd.to_datetime(df[col], errors='coerce')
+        if col in df_ticket.columns:
+            df_ticket[col] = pd.to_datetime(df_ticket[col], errors='coerce')
 
-    # Resolution time from Close - Open
-    if C_OPEN in df.columns and C_CLOSE in df.columns:
-        delta = df[C_CLOSE] - df[C_OPEN]
-        df['Resolution_Hours'] = delta.dt.total_seconds() / 3600
-        df['Resolution_Days'] = df['Resolution_Hours'] / 24
+    # Resolution time: close - open
+    if C_OPEN in df_ticket.columns and C_CLOSE in df_ticket.columns:
+        delta = df_ticket[C_CLOSE] - df_ticket[C_OPEN]
+        df_ticket['Resolution_Hours'] = delta.dt.total_seconds() / 3600
+        df_ticket['Resolution_Days'] = df_ticket['Resolution_Hours'] / 24
     else:
-        df['Resolution_Hours'] = pd.NA
-        df['Resolution_Days'] = pd.NA
+        df_ticket['Resolution_Hours'] = pd.NA
+        df_ticket['Resolution_Days'] = pd.NA
 
-    # Month from Open Date
-    if C_OPEN in df.columns:
-        df['Month'] = df[C_OPEN].dt.to_period('M').astype(str)
+    # Month from open date
+    if C_OPEN in df_ticket.columns:
+        df_ticket['Month'] = df_ticket[C_OPEN].dt.to_period('M').astype(str)
 
-    # Make Priority column from numeric pattern (1=High, 3/4=Medium, 5=Low)
-    if C_PRIORITY not in df.columns:
+    # Priority column from numeric pattern (1 High, 3/4 Medium, 5 Low)
+    if C_PRIORITY not in df_ticket.columns:
         pri_col = None
-        for col in df.columns:
+        for col in df_ticket.columns:
             if col in [C_ID, C_OPEN, C_CLOSE, C_STATUS, C_AGENT, C_DEPT]:
                 continue
             try:
-                num_frac = df[col].dropna().astype(str).str.match(r'^[0-9]+(\.0)?$').mean()
+                num_frac = df_ticket[col].dropna().astype(str).str.match(r'^[0-9]+(\.0)?$').mean()
             except Exception:
                 num_frac = 0
             if num_frac > 0.9:
                 pri_col = col
                 break
-
         if pri_col:
-            tmp = pd.to_numeric(df[pri_col], errors='coerce')
+            tmp = pd.to_numeric(df_ticket[pri_col], errors='coerce')
             pr = []
             for v in tmp:
                 if v == 1:
@@ -263,37 +270,35 @@ def load_data(raw_bytes: bytes):
                     pr.append('Low')
                 else:
                     pr.append(pd.NA)
-            df[C_PRIORITY] = pr
+            df_ticket[C_PRIORITY] = pr
         else:
-            df[C_PRIORITY] = 'Low'
+            df_ticket[C_PRIORITY] = 'Low'
 
-    df[C_PRIORITY] = df[C_PRIORITY].astype(str).str.strip().replace({'nan': pd.NA, '': pd.NA})
+    df_ticket[C_PRIORITY] = df_ticket[C_PRIORITY].astype(str).str.strip().replace({'nan': pd.NA, '': pd.NA})
 
-    # Reason: prefer solution, else summary
-    if C_REASON in df.columns:
-        df[C_REASON] = df[C_REASON].astype(str).str.strip().replace({'nan': pd.NA, '': pd.NA})
+    # Reason: use solution or summary
+    if C_REASON in df_ticket.columns:
+        df_ticket[C_REASON] = df_ticket[C_REASON].astype(str).str.strip().replace({'nan': pd.NA, '': pd.NA})
     else:
-        df[C_REASON] = df.get(C_SUMMARY, pd.NA)
+        df_ticket[C_REASON] = df_ticket.get(C_SUMMARY, pd.NA)
 
-    # SLA columns keep as string flags
+    # SLA flags as text
     for col in [C_RESP_SLA, C_RES_SLA]:
-        if col in df.columns:
-            df[col] = df[col].astype(str).str.strip().replace({'nan': '', '': ''})
+        if col in df_ticket.columns:
+            df_ticket[col] = df_ticket[col].astype(str).str.strip().replace({'nan': '', '': ''})
 
-    df.dropna(how='all', inplace=True)
-    df.reset_index(drop=True, inplace=True)
+    df_ticket.dropna(how='all', inplace=True)
+    df_ticket.reset_index(drop=True, inplace=True)
 
     stats = {
-        'total': len(df),
-        'with_time': int(df['Resolution_Hours'].notna().sum()),
-        'avg_hours': float(df['Resolution_Hours'].mean()) if df['Resolution_Hours'].notna().any() else 0.0,
-        'avg_days': float(df['Resolution_Days'].mean()) if df['Resolution_Days'].notna().any() else 0.0,
+        'total': len(df_ticket),
+        'with_time': int(df_ticket['Resolution_Hours'].notna().sum()),
+        'avg_hours': float(df_ticket['Resolution_Hours'].mean()) if df_ticket['Resolution_Hours'].notna().any() else 0.0,
+        'avg_days': float(df_ticket['Resolution_Days'].mean()) if df_ticket['Resolution_Days'].notna().any() else 0.0,
     }
-    return df, stats
 
-# ================================================================
-#  LOAD DATA
-# ================================================================
+    return df_ticket, stats
+
 try:
     raw_bytes = uploaded.read()
     df, stats = load_data(raw_bytes)
@@ -306,19 +311,18 @@ if df.empty:
     st.stop()
 
 # ================================================================
-#  SIDEBAR FILTERS
+#  FILTERS (same style)
 # ================================================================
 with st.sidebar:
     st.markdown("---")
     ALL = "All"
-    dep_options = [ALL] + sorted(df[C_DEPT].dropna().unique().tolist()) if C_DEPT in df.columns else [ALL]
-    pri_options = [ALL] + sorted(df[C_PRIORITY].dropna().unique().tolist()) if C_PRIORITY in df.columns else [ALL]
-    s_dep = st.selectbox("🏢 Department", dep_options)
-    s_pri = st.selectbox("⚡ Priority", pri_options)
+    dep_opts = [ALL] + sorted(df[C_DEPT].dropna().unique().tolist()) if C_DEPT in df.columns else [ALL]
+    pri_opts = [ALL] + sorted(df[C_PRIORITY].dropna().unique().tolist()) if C_PRIORITY in df.columns else [ALL]
+    s_dep = st.selectbox("🏢 Department", dep_opts)
+    s_pri = st.selectbox("⚡ Priority", pri_opts)
     st.markdown("---")
-    top_n = st.slider("🔢 Top N Agents / Reasons", 5, 30, 15)
+    top_n = st.slider("🔢 Top N (Agents / Reasons)", 5, 30, 15)
 
-# Apply filters
 dff = df.copy()
 if s_dep != ALL and C_DEPT in dff.columns:
     dff = dff[dff[C_DEPT] == s_dep]
@@ -326,7 +330,7 @@ if s_pri != ALL and C_PRIORITY in dff.columns:
     dff = dff[dff[C_PRIORITY] == s_pri]
 
 # ================================================================
-#  SMALL HELPERS
+#  HELPERS
 # ================================================================
 def sec(title: str):
     st.markdown(f"<div class='sec-premium'>{title}</div>", unsafe_allow_html=True)
@@ -354,7 +358,7 @@ def ccfg(fig, h=450):
     return fig
 
 # ================================================================
-#  HEADER
+#  HEADER (same premium style)
 # ================================================================
 st.markdown(
     f"<div style='background:linear-gradient(135deg,#1a1f3a,#2d3561);padding:24px 32px;border-radius:22px;"
@@ -364,15 +368,15 @@ st.markdown(
     f"padding:16px 20px;font-size:2.4rem;box-shadow:0 8px 32px rgba(31,111,235,.4)'>🖥️</div>"
     f"<div style='flex:1'>"
     f"<h1 style='color:#58a6ff;margin:0;font-size:1.9rem;font-weight:900'>IT Helpdesk Analytics — Manager View</h1>"
-    f"<div style='color:#7d8590;margin-top:5px;font-size:.8rem;font-weight:600'>Resolution Time • Priority • Agents • Departments • Monthly Trends • SLA</div>"
+    f"<div style='color:#7d8590;margin-top:5px;font-size:.8rem;font-weight:600'>Old dashboard look + new resolution & SLA metrics</div>"
     f"<div style='color:#7d8590;margin-top:8px;font-size:.8rem'>"
-    f"📄 {uploaded.name} • 🗂️ {len(df):,} tickets total • 🔽 {len(dff):,} filtered"
+    f"📄 {uploaded.name} • 🗂️ {len(df):,} tickets total • 🔽 {len(dff):,} after filters"
     f"</div></div></div></div>",
     unsafe_allow_html=True,
 )
 
 # ================================================================
-#  TABS
+#  TABS (ORIGINAL + NEW FEATURES MERGED)
 # ================================================================
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "📊 Overview",
@@ -383,9 +387,7 @@ tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "🗃️ Raw Data",
 ])
 
-# ================================================================
-#  TAB 1: OVERVIEW  (totals + SLA 24h/3d/7d)
-# ================================================================
+# ---------------- TAB 1: OVERVIEW + SLA -------------------------
 with tab1:
     sec("📌 KEY KPIs")
 
@@ -438,7 +440,7 @@ with tab1:
             unsafe_allow_html=True,
         )
 
-    # SLA
+    # SLA 24h / 3d / 7d
     sec("🎯 SLA COMPLIANCE (24H / 3D / 7D)")
 
     total_with_time = dff['Resolution_Hours'].notna().sum()
@@ -483,43 +485,32 @@ with tab1:
 
     c1, c2 = st.columns(2)
 
-    # Top departments by volume
     with c1:
         if C_DEPT in dff.columns:
             dept_vol = dff[C_DEPT].value_counts().head(10).reset_index()
             dept_vol.columns = [C_DEPT, 'Count']
             fig = px.bar(
-                dept_vol,
-                x='Count',
-                y=C_DEPT,
-                orientation='h',
-                color='Count',
-                color_continuous_scale='Teal',
-                title='Top 10 Departments by Ticket Volume',
+                dept_vol, x='Count', y=C_DEPT, orientation='h',
+                color='Count', color_continuous_scale='Teal',
+                title='Top 10 Departments by Ticket Volume'
             )
             fig.update_layout(yaxis={'categoryorder': 'total ascending'}, showlegend=False, coloraxis_showscale=False)
             fig.update_traces(text=dept_vol['Count'], textposition='outside')
             st.plotly_chart(ccfg(fig, 450), use_container_width=True)
 
-    # Priority pie
     with c2:
         if C_PRIORITY in dff.columns:
             pri_data = dff[C_PRIORITY].value_counts().reset_index()
             pri_data.columns = ['Priority', 'Count']
             fig = px.pie(
-                pri_data,
-                values='Count',
-                names='Priority',
-                hole=0.45,
+                pri_data, values='Count', names='Priority', hole=0.45,
                 title='Priority Distribution',
                 color_discrete_sequence=['#f85149', '#d29922', '#3fb950'],
             )
             fig.update_traces(textposition='inside', textinfo='percent+label')
             st.plotly_chart(ccfg(fig, 450), use_container_width=True)
 
-# ================================================================
-#  TAB 2: RESOLUTION TIME (overall, by priority, by reason) 
-# ================================================================
+# ---------------- TAB 2: RESOLUTION TIME ------------------------
 with tab2:
     sec("⏱️ RESOLUTION TIME — OVERALL & BY CATEGORY")
 
@@ -530,7 +521,7 @@ with tab2:
         st.markdown(
             f"<div class='insight-card'><div class='insight-badge'>📊 OVERALL AVERAGE</div>"
             f"<div class='insight-text'><b style='color:#58a6ff;font-size:2rem'>{fmt_time(overall_avg)}</b><br>"
-            f"Average resolution time across all tickets.</div></div>",
+            f"Average resolution time for all tickets.</div></div>",
             unsafe_allow_html=True,
         )
 
@@ -539,7 +530,7 @@ with tab2:
         st.markdown(
             f"<div class='insight-card'><div class='insight-badge'>📈 MEDIAN TIME</div>"
             f"<div class='insight-text'><b style='color:#3fb950;font-size:2rem'>{fmt_time(median_hrs)}</b><br>"
-            f"Half of tickets resolved faster than this.</div></div>",
+            f"50% tickets closed faster than this.</div></div>",
             unsafe_allow_html=True,
         )
 
@@ -554,7 +545,7 @@ with tab2:
 
     st.markdown("---")
 
-    # Avg by priority
+    # By priority
     if C_PRIORITY in dff.columns:
         sec("⚡ AVERAGE RESOLUTION TIME BY PRIORITY")
         pri_time = (
@@ -567,54 +558,63 @@ with tab2:
         pri_time['Avg Time'] = pri_time['Avg Hours'].apply(fmt_time)
 
         fig = px.bar(
-            pri_time,
-            x='Avg Hours',
-            y='Priority',
-            orientation='h',
-            color='Avg Hours',
-            color_continuous_scale='Reds',
-            text='Avg Time',
-            title='Average Resolution Time by Priority',
+            pri_time, x='Avg Hours', y='Priority', orientation='h',
+            color='Avg Hours', color_continuous_scale='Reds',
+            text='Avg Time', title='Average Resolution Time by Priority'
         )
         fig.update_layout(yaxis={'categoryorder': 'total ascending'}, showlegend=False, coloraxis_showscale=False)
         fig.update_traces(textposition='outside')
         st.plotly_chart(ccfg(fig, 400), use_container_width=True)
         st.dataframe(pri_time[['Priority', 'Avg Time']], use_container_width=True, height=220)
 
-    # Avg by reason (top 10)
-    if C_REASON in dff.columns:
-        sec("🔍 AVERAGE RESOLUTION TIME BY REASON (Top 10)")
-        reason_time = (
-            dff.groupby(C_REASON)
-            .agg(Avg_Hours=('Resolution_Hours', 'mean'), Count=(C_REASON, 'count'))
+    # By department
+    if C_DEPT in dff.columns:
+        sec("🏢 AVERAGE RESOLUTION TIME BY DEPARTMENT (Top 15)")
+        dept_time = (
+            dff.groupby(C_DEPT)
+            .agg(Avg_Hours=('Resolution_Hours', 'mean'), Tickets=(C_DEPT, 'count'))
             .reset_index()
         )
-        reason_time = reason_time.sort_values('Count', ascending=False).head(top_n)
-        reason_time['Avg Time'] = reason_time['Avg_Hours'].apply(fmt_time)
+        dept_time['Avg Time'] = dept_time['Avg_Hours'].apply(fmt_time)
+        dept_time = dept_time.sort_values('Avg_Hours', ascending=False).head(15)
 
         fig = px.bar(
-            reason_time,
-            x='Avg_Hours',
-            y=C_REASON,
-            orientation='h',
-            color='Avg_Hours',
-            color_continuous_scale='Purples',
-            text='Avg Time',
-            title=f'Top {top_n} Reasons by Average Resolution Time',
+            dept_time, x='Avg_Hours', y=C_DEPT, orientation='h',
+            color='Avg_Hours', color_continuous_scale='Oranges',
+            text='Avg Time', title='Average Resolution Time by Department'
         )
         fig.update_layout(yaxis={'categoryorder': 'total ascending'}, showlegend=False, coloraxis_showscale=False)
         fig.update_traces(textposition='outside')
         st.plotly_chart(ccfg(fig, 500), use_container_width=True)
-        st.dataframe(reason_time[[C_REASON, 'Count', 'Avg Time']], use_container_width=True, height=400)
+        st.dataframe(dept_time[[C_DEPT, 'Tickets', 'Avg Time']], use_container_width=True, height=350)
 
-# ================================================================
-#  TAB 3: PRIORITY & REASONS (percentages etc.) 
-# ================================================================
+    # By reason (top N)
+    if C_REASON in dff.columns:
+        sec("🔍 AVERAGE RESOLUTION TIME BY REASON (Top reasons)")
+        reason_time = (
+            dff.groupby(C_REASON)
+            .agg(Avg_Hours=('Resolution_Hours', 'mean'), Tickets=(C_REASON, 'count'))
+            .reset_index()
+        )
+        reason_time['Avg Time'] = reason_time['Avg_Hours'].apply(fmt_time)
+        reason_time = reason_time.sort_values('Tickets', ascending=False).head(top_n)
+
+        fig = px.bar(
+            reason_time, x='Avg_Hours', y=C_REASON, orientation='h',
+            color='Avg_Hours', color_continuous_scale='Purples',
+            text='Avg Time', title=f'Top {top_n} Reasons by Avg Resolution Time'
+        )
+        fig.update_layout(yaxis={'categoryorder': 'total ascending'}, showlegend=False, coloraxis_showscale=False)
+        fig.update_traces(textposition='outside')
+        st.plotly_chart(ccfg(fig, 500), use_container_width=True)
+        st.dataframe(reason_time[[C_REASON, 'Tickets', 'Avg Time']], use_container_width=True, height=350)
+
+# ---------------- TAB 3: PRIORITY & REASONS ---------------------
 with tab3:
     if C_PRIORITY not in dff.columns:
-        st.info("⚠️ Priority column could not be detected.")
+        st.info("⚠️ Priority column not found.")
     else:
-        sec("⚡ PRIORITY DISTRIBUTION & AVERAGE TIME")
+        sec("⚡ PRIORITY DISTRIBUTION & STATS")
 
         total = len(dff)
         high_cnt = len(dff[dff[C_PRIORITY] == 'High'])
@@ -625,9 +625,8 @@ with tab3:
         med_pct = round(med_cnt / total * 100, 1) if total else 0
         low_pct = round(low_cnt / total * 100, 1) if total else 0
 
-        p1, p2, p3 = st.columns(3)
-
-        with p1:
+        c1, c2, c3 = st.columns(3)
+        with c1:
             st.markdown(
                 f"<div class='insight-card' style='border-left-color:#f85149'>"
                 f"<div class='insight-badge' style='background:rgba(248,81,73,.15);color:#f85149'>HIGH</div>"
@@ -635,8 +634,7 @@ with tab3:
                 f"{high_cnt:,} High priority tickets</div></div>",
                 unsafe_allow_html=True,
             )
-
-        with p2:
+        with c2:
             st.markdown(
                 f"<div class='insight-card' style='border-left-color:#d29922'>"
                 f"<div class='insight-badge' style='background:rgba(210,153,34,.15);color:#d29922'>MEDIUM</div>"
@@ -644,8 +642,7 @@ with tab3:
                 f"{med_cnt:,} Medium priority tickets</div></div>",
                 unsafe_allow_html=True,
             )
-
-        with p3:
+        with c3:
             st.markdown(
                 f"<div class='insight-card' style='border-left-color:#3fb950'>"
                 f"<div class='insight-badge' style='background:rgba(63,185,80,.15);color:#3fb950'>LOW</div>"
@@ -656,7 +653,7 @@ with tab3:
 
         st.markdown("---")
 
-        # Priority vs average resolution time (again but clear table)
+        # Priority vs avg resolution (table)
         sec("⏱️ AVERAGE RESOLUTION BY PRIORITY")
         pri_time = (
             dff.groupby(C_PRIORITY)['Resolution_Hours']
@@ -667,10 +664,10 @@ with tab3:
         pri_time['Avg Time'] = pri_time['Avg Hours'].apply(fmt_time)
         st.dataframe(pri_time, use_container_width=True, height=250)
 
-        # Top 10 reasons (by count) with avg time
+        # Top 10 reasons: % of year + avg time
         if C_REASON in dff.columns:
-            sec("📌 TOP 10 REASONS (Count + % of year + Avg Time)")
-            reason_counts = dff[C_REASON].value_counts().head(10).reset_index()
+            sec("📌 TOP REASONS — COUNT, % OF YEAR, AVG TIME")
+            reason_counts = dff[C_REASON].value_counts().head(top_n).reset_index()
             reason_counts.columns = [C_REASON, 'Count']
             reason_counts['% of Year'] = round(reason_counts['Count'] / len(df) * 100, 2)
 
@@ -689,14 +686,12 @@ with tab3:
                 height=400,
             )
 
-# ================================================================
-#  TAB 4: AGENTS & DEPARTMENTS 
-# ================================================================
+# ---------------- TAB 4: AGENTS & DEPARTMENTS -------------------
 with tab4:
-    sec("👨‍💻 AGENT PERFORMANCE — COUNT & AVERAGE TIME & HIGH SHARE")
+    sec("👨‍💻 AGENT PERFORMANCE")
 
     if C_AGENT not in dff.columns or dff[C_AGENT].dropna().empty:
-        st.info("No agent assignment data available.")
+        st.info("No agent data available.")
     else:
         agent_stats = (
             dff.dropna(subset=[C_AGENT])
@@ -717,8 +712,7 @@ with tab4:
 
         agent_stats['Avg Time'] = agent_stats['Avg_Hours'].apply(fmt_time)
         agent_stats['_Agent Short'] = (
-            agent_stats[C_AGENT]
-            .astype(str)
+            agent_stats[C_AGENT].astype(str)
             .str.replace('−متعاقد', '', regex=False)
             .str.replace('-متعاقد', '', regex=False)
             .str.strip()
@@ -733,17 +727,11 @@ with tab4:
         )
 
         c1, c2 = st.columns(2)
-
         with c1:
             fig = px.bar(
-                agent_stats,
-                x='Tickets',
-                y='_Agent Short',
-                orientation='h',
-                color='Tickets',
-                color_continuous_scale='Viridis',
-                text='Tickets',
-                title=f'Top {top_n} Agents by Ticket Count',
+                agent_stats, x='Tickets', y='_Agent Short', orientation='h',
+                color='Tickets', color_continuous_scale='Viridis',
+                text='Tickets', title=f'Top {top_n} Agents by Ticket Count'
             )
             fig.update_layout(yaxis={'categoryorder': 'total ascending'}, showlegend=False, coloraxis_showscale=False)
             fig.update_traces(textposition='outside')
@@ -751,27 +739,25 @@ with tab4:
 
         with c2:
             fig = px.bar(
-                agent_stats,
-                x='Avg_Hours',
-                y='_Agent Short',
-                orientation='h',
-                color='Avg_Hours',
-                color_continuous_scale='Oranges',
-                text=agent_stats['Avg Time'],
-                title=f'Top {top_n} Agents by Avg Resolution Time',
+                agent_stats, x='Avg_Hours', y='_Agent Short', orientation='h',
+                color='Avg_Hours', color_continuous_scale='Oranges',
+                text=agent_stats['Avg Time'], title=f'Top {top_n} Agents by Avg Resolution Time'
             )
             fig.update_layout(yaxis={'categoryorder': 'total ascending'}, showlegend=False, coloraxis_showscale=False)
             fig.update_traces(textposition='outside')
             st.plotly_chart(ccfg(fig, 500), use_container_width=True)
 
-    # Departments detail
+    # Department stats
     if C_DEPT in dff.columns:
-        sec("🏢 DEPARTMENT ANALYSIS — COUNT, AVG TIME, HIGH %")
-
-        dept_stats = dff.groupby(C_DEPT).agg(
-            Tickets=(C_DEPT, 'count'),
-            Avg_Hours=('Resolution_Hours', 'mean'),
-        ).reset_index()
+        sec("🏢 DEPARTMENT STATS — TICKETS, AVG TIME, HIGH %")
+        dept_stats = (
+            dff.groupby(C_DEPT)
+            .agg(
+                Tickets=(C_DEPT, 'count'),
+                Avg_Hours=('Resolution_Hours', 'mean'),
+            )
+            .reset_index()
+        )
         if C_PRIORITY in dff.columns:
             dept_high = (
                 dff[dff[C_PRIORITY] == 'High']
@@ -795,14 +781,12 @@ with tab4:
             height=450,
         )
 
-# ================================================================
-#  TAB 5: MONTHLY TRENDS (count, avg time, high %) 
-# ================================================================
+# ---------------- TAB 5: MONTHLY TRENDS -------------------------
 with tab5:
     if 'Month' not in dff.columns or dff['Month'].isna().all():
-        st.info("⚠️ Open date column missing — cannot build monthly trends.")
+        st.info("⚠️ Cannot build monthly trends (Open Date missing).")
     else:
-        sec("📈 MONTHLY TICKET VOLUME, AVG RESOLUTION, HIGH %")
+        sec("📈 MONTHLY VOLUME, AVG TIME, HIGH %")
 
         monthly = dff.groupby('Month').agg(
             Tickets=('Month', 'count'),
@@ -813,9 +797,7 @@ with tab5:
         if C_PRIORITY in dff.columns:
             monthly_high = (
                 dff[dff[C_PRIORITY] == 'High']
-                .groupby('Month')
-                .size()
-                .reset_index(name='High Count')
+                .groupby('Month').size().reset_index(name='High Count')
             )
             monthly = monthly.merge(monthly_high, on='Month', how='left').fillna(0)
             monthly['High Count'] = monthly['High Count'].astype(int)
@@ -834,24 +816,18 @@ with tab5:
 
         fig.add_trace(
             go.Scatter(
-                x=monthly['Month'],
-                y=monthly['Tickets'],
-                mode='lines+markers',
-                name='Tickets',
-                line=dict(color='#58a6ff', width=3),
-                marker=dict(size=7),
+                x=monthly['Month'], y=monthly['Tickets'],
+                mode='lines+markers', name='Tickets',
+                line=dict(color='#58a6ff', width=3), marker=dict(size=7),
             ),
             row=1, col=1,
         )
 
         fig.add_trace(
             go.Scatter(
-                x=monthly['Month'],
-                y=monthly['Avg_Hours'],
-                mode='lines+markers',
-                name='Avg Hours',
-                line=dict(color='#d29922', width=3),
-                marker=dict(size=7),
+                x=monthly['Month'], y=monthly['Avg_Hours'],
+                mode='lines+markers', name='Avg Hours',
+                line=dict(color='#d29922', width=3), marker=dict(size=7),
             ),
             row=2, col=1,
         )
@@ -869,18 +845,15 @@ with tab5:
         st.plotly_chart(fig, use_container_width=True)
 
         st.markdown("---")
-
         st.dataframe(
             monthly[['Month', 'Tickets', 'Avg Time', 'High Count', 'High %']],
             use_container_width=True,
             height=450,
         )
 
-# ================================================================
-#  TAB 6: RAW DATA 
-# ================================================================
+# ---------------- TAB 6: RAW DATA -------------------------------
 with tab6:
-    sec("🗃️ RAW DATA")
+    sec("🗃️ RAW DATA (FILTERED)")
 
     display_df = dff.copy()
     if 'Resolution_Hours' in display_df.columns:
@@ -914,8 +887,8 @@ with tab6:
 st.markdown("---")
 st.markdown(
     "<div style='text-align:center;margin-top:40px;padding-top:20px;border-top:1px solid rgba(88,166,255,.1)'>"
-    "<div style='color:#7d8590;font-size:.88rem;font-weight:600'>Advanced IT Helpdesk Analytics Dashboard</div>"
-    "<div style='color:#58a6ff;font-size:.78rem;margin-top:6px;font-weight:500'>Built by Tarique for Zyad Manager View</div>"
+    "<div style='color:#7d8590;font-size:.88rem;font-weight:600'>IT Helpdesk Analytics Dashboard</div>"
+    "<div style='color:#58a6ff;font-size:.78rem;margin-top:6px;font-weight:500'>Old UI + Zyad Manager Required Metrics</div>"
     "</div>",
     unsafe_allow_html=True,
 )
