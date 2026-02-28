@@ -15,6 +15,7 @@
 # 10. Added sunburst chart for hierarchical view (Department > Service > Main Category) in Overview tab.
 # Note: Word cloud feature removed due to missing 'wordcloud' module in the environment.
 # New: Added advanced analytics as per user requirements in a new tab 'Analytics Summary'
+# Enhanced: PDF now includes all tabs' content (Overview, Issues, Departments, Agents, Trends, Data, Sub Categories, Advanced Analytics) in Arabic with perfect formatting.
 # ================================================================
 import streamlit as st
 import pandas as pd
@@ -41,7 +42,6 @@ except ImportError:
     ARABIC_SUPPORT = False
     def reshape(t): return str(t)
     def get_display(t): return str(t)
-
 st.set_page_config(page_title="IT Helpdesk Analytics", page_icon="🖥️",
                    layout="wide", initial_sidebar_state="expanded")
 # ── PERFECT ARABIC FONT LOADER ───────────────────────────────────
@@ -49,7 +49,7 @@ st.set_page_config(page_title="IT Helpdesk Analytics", page_icon="🖥️",
 def load_arabic_fonts():
     """Load multiple Arabic font weights"""
     fonts_loaded = {}
-   
+  
     font_urls = {
         'Amiri-Regular': [
             "https://github.com/aliftype/amiri/raw/main/Amiri-Regular.ttf",
@@ -60,7 +60,7 @@ def load_arabic_fonts():
             "https://fonts.gstatic.com/s/amiri/v27/J7acnpd8CGxBHqUpvrIGJBEoRdI.ttf",
         ],
     }
-   
+  
     for font_name, urls in font_urls.items():
         path = f"/tmp/{font_name}.ttf"
         if not os.path.exists(path):
@@ -73,14 +73,14 @@ def load_arabic_fonts():
                         break
                 except:
                     continue
-       
+      
         try:
             if os.path.exists(path):
                 pdfmetrics.registerFont(TTFont(font_name, path))
                 fonts_loaded[font_name] = True
         except:
             fonts_loaded[font_name] = False
-   
+  
     return fonts_loaded
 FONTS = load_arabic_fonts()
 FONT_OK = FONTS.get('Amiri-Regular', False)
@@ -91,11 +91,11 @@ def ar(text, max_len=None):
     t = str(text).strip()
     if not t or t in ['nan', '', 'None']:
         return ''
-   
+  
     # Truncate if needed
     if max_len and len(t) > max_len:
         t = t[:max_len-2] + '..'
-   
+  
     # Check if Arabic characters present
     if ARABIC_SUPPORT and any('\u0600' <= c <= '\u06FF' for c in t):
         try:
@@ -234,43 +234,43 @@ def load_data(rb):
             t = pd.read_excel(io.BytesIO(rb), sheet_name=0, header=h)
             if C_DEPT_AR in t.columns: bh=h; break
         except: pass
-   
+  
     df = pd.read_excel(io.BytesIO(rb), sheet_name=0, header=bh)
-   
+  
     # Remove total rows
     if C_DEPT_AR in df.columns:
         df = df[~df[C_DEPT_AR].astype(str).str.contains('Grand Total|المجموع', na=False)]
-   
+  
     # Keep only relevant columns
     keep = [c for c in [C_DEPT_AR, C_SVC_AR, C_MAIN_AR, C_SUB_AR, C_AGENT_AR, C_IMPACT_AR, C_CREATE_AR, C_CLOSE_AR, C_RESOLVE_AR, C_STATUS_AR] if c in df.columns]
     df = df[keep].copy()
-   
+  
     # Forward fill for merged cells
     for c in [C_DEPT_AR, C_SVC_AR, C_MAIN_AR, C_SUB_AR]:
         if c in df.columns:
             df[c] = df[c].replace('', pd.NA).ffill()
-   
+  
     # Clean agent names
     if C_AGENT_AR in df.columns:
         df[C_AGENT_AR] = df[C_AGENT_AR].astype(str).str.strip()
         df[C_AGENT_AR] = df[C_AGENT_AR].replace({'nan':pd.NA,'Agent':pd.NA,'مسند الى':pd.NA,'':pd.NA})
-   
+  
     # Remove empty rows
     df.dropna(how='all', inplace=True)
     mc = [c for c in [C_DEPT_AR, C_SVC_AR, C_MAIN_AR] if c in df.columns]
     df = df.dropna(subset=mc, how='all')
     df.reset_index(drop=True, inplace=True)
-   
+  
     # Create short agent name
     if C_AGENT_AR in df.columns:
         df['_short'] = (df[C_AGENT_AR].str.replace('−متعاقد','',regex=False)
                         .str.replace('-متعاقد','',regex=False).str.strip())
     else:
         df['_short'] = pd.NA
-   
+  
     # ✅ RENAME COLUMNS TO ENGLISH
     df = df.rename(columns=COLUMN_MAP)
-   
+  
     # Calculate accuracy stats
     acc = {
         'total': len(df),
@@ -279,78 +279,59 @@ def load_data(rb):
         'main_fill': round(df[C_MAIN].notna().sum()/len(df)*100,1) if C_MAIN in df.columns else 0,
         'agent_fill': round(df[C_AGENT].notna().sum()/len(df)*100,1) if C_AGENT in df.columns else 0,
     }
-
     # Advanced analytics calculations
     # Filter closed tickets - include 'Closed', 'Resolved', 'Close (Not Incident)'
     closed_statuses = ['Closed', 'Resolved', 'Close (Not Incident)']
     df_closed = df[df['Status'].isin(closed_statuses)].copy()
-
     # Use Closing Date if not NaN, else Resolution Date
     df_closed['Effective Close Date'] = df_closed['Closing Date'].where(df_closed['Closing Date'].notna(), df_closed['Resolution Date'])
-
     # Drop if Effective Close Date NaN
     df_closed = df_closed[df_closed['Effective Close Date'].notna()]
-
     # Resolution time in days
     df_closed['Resolution Time'] = (df_closed['Effective Close Date'] - df_closed['Creation Date']).dt.total_seconds() / 86400
-
     # Remove invalid (negative or NaN)
     df_closed = df_closed[df_closed['Resolution Time'] > 0].dropna(subset=['Resolution Time'])
-
     # Overall average
     overall_avg = df_closed['Resolution Time'].mean()
-
     # Average by priority
     avg_by_priority = df_closed.groupby('Impact')['Resolution Time'].mean()
-
     # Average by department (top 10 by count)
     dept_counts = df_closed['Department'].value_counts().head(10)
     avg_by_dept = df_closed.groupby('Department')['Resolution Time'].mean().reindex(dept_counts.index)
-
     # Average by cause (top 10)
     cause_counts = df_closed['Main Category'].value_counts().head(10)
     avg_by_cause = df_closed.groupby('Main Category')['Resolution Time'].mean().reindex(cause_counts.index)
-
     # Average by technician (top 10)
     tech_counts = df_closed['Assigned To'].value_counts().head(10)
     avg_by_tech = df_closed.groupby('Assigned To')['Resolution Time'].mean().reindex(tech_counts.index)
-
     # Monthly average
     df_closed['Month'] = df_closed['Creation Date'].dt.to_period('M')
     monthly_counts = df_closed['Month'].value_counts().sort_index()
     avg_monthly = df_closed.groupby('Month')['Resolution Time'].mean().sort_index()
-
     # Priority distribution
     priority_dist = df_closed['Impact'].value_counts(normalize=True) * 100
-
     # Top 10 causes pct
     top_causes_pct = (cause_counts / len(df_closed)) * 100
-
     # Per department non-low %
     non_low = df_closed[df_closed['Impact'] != 'Low']
     dept_non_low_counts = non_low.groupby('Department').size()
     dept_total = df_closed.groupby('Department').size()
     dept_non_low_pct = (dept_non_low_counts / dept_total * 100).reindex(dept_counts.index).fillna(0)
-
     # Per tech non-low counts (as number)
     tech_non_low_counts = non_low.groupby('Assigned To').size().reindex(tech_counts.index).fillna(0)
-
     # Monthly non-low pct
     monthly_non_low_counts = non_low.groupby('Month').size()
     monthly_non_low_pct = (monthly_non_low_counts / monthly_counts * 100).fillna(0)
-
     # Tech table
     tech_table = pd.DataFrame({
         'الفني': tech_counts.index,
         'عدد التذاكر': tech_counts,
         'متوسط وقت الحل': avg_by_tech
     }).reset_index(drop=True)
-
     # Percentages
     pct_24h = (df_closed['Resolution Time'] <= 1).mean() * 100
     pct_gt3d = (df_closed['Resolution Time'] > 3).mean() * 100
     pct_gt7d = (df_closed['Resolution Time'] > 7).mean() * 100
-
     analytics = {
         'overall_avg': overall_avg,
         'avg_by_priority': avg_by_priority,
@@ -372,7 +353,7 @@ def load_data(rb):
         'pct_gt3d': pct_gt3d,
         'pct_gt7d': pct_gt7d
     }
-   
+  
     return df, acc, analytics
 try:
     rb = uploaded.read()
@@ -432,9 +413,9 @@ def fig_to_png(fig, w=900, h=420):
     except:
         return None
 # ══════════════════════════════════════════════════════════════════
-# PERFECT PDF GENERATOR (English Headers + Arabic Content)
+# PERFECT PDF GENERATOR (English Headers + Arabic Content) - Enhanced to include all tabs
 # ══════════════════════════════════════════════════════════════════
-def generate_premium_pdf(df_data, stats, language="English"):
+def generate_premium_pdf(df_data, stats, language="English", analytics=None):
     buffer = io.BytesIO()
     total = len(df_data)
     is_ar = (language == "العربية")
@@ -457,40 +438,40 @@ def generate_premium_pdf(df_data, stats, language="English"):
     base_font = AR_FONT if is_ar else 'Helvetica'
     bold_font = AR_FONT_BOLD if is_ar else 'Helvetica-Bold'
     ar_leading_multiplier = 1.8 if is_ar else 1.3
-   
+  
     cover_title = ParagraphStyle('CT',
         fontSize=32, textColor=PRIMARY, alignment=TA_CENTER, fontName=bold_font,
         spaceAfter=18, leading=32 * ar_leading_multiplier, letterSpacing=0)
-   
+  
     cover_sub = ParagraphStyle('CS',
         fontSize=16, textColor=ACCENT, alignment=TA_CENTER, fontName=base_font,
         spaceAfter=12, leading=16 * ar_leading_multiplier, letterSpacing=0)
-   
+  
     cover_meta = ParagraphStyle('CM',
         fontSize=9, textColor=colors.HexColor('#6e7681'),
         alignment=TA_CENTER, spaceAfter=6, fontName='Helvetica', leading=12)
-   
+  
     h1 = ParagraphStyle('H1',
         fontSize=18, textColor=PRIMARY, fontName=bold_font,
         spaceBefore=20, spaceAfter=14, leading=18 * ar_leading_multiplier,
         alignment=TA_RIGHT if is_ar else TA_LEFT)
-   
+  
     h2 = ParagraphStyle('H2',
         fontSize=14, textColor=ACCENT, fontName=bold_font,
         spaceBefore=16, spaceAfter=12, leading=14 * ar_leading_multiplier,
         alignment=TA_RIGHT if is_ar else TA_LEFT)
-   
+  
     h3 = ParagraphStyle('H3',
         fontSize=12, textColor=colors.HexColor('#6e7681'), fontName=bold_font,
         spaceBefore=12, spaceAfter=10, leading=12 * ar_leading_multiplier,
         alignment=TA_RIGHT if is_ar else TA_LEFT)
-   
+  
     body = ParagraphStyle('BD',
         fontSize=10, textColor=colors.HexColor('#24292f'),
         alignment=TA_RIGHT if is_ar else TA_JUSTIFY,
         leading=10 * ar_leading_multiplier, fontName=base_font,
         spaceBefore=8, spaceAfter=8)
-   
+  
     footer = ParagraphStyle('FT',
         fontSize=8, textColor=colors.HexColor('#6e7681'),
         alignment=TA_CENTER, fontName='Helvetica', leading=11)
@@ -502,7 +483,7 @@ def generate_premium_pdf(df_data, stats, language="English"):
             processed_row = []
             for cell_idx, cell in enumerate(row):
                 cell_str = str(cell)
-               
+              
                 # ✅ FIRST ROW (HEADERS) = ALWAYS ENGLISH
                 if row_idx == 0:
                     processed_row.append(cell_str) # Keep headers as-is
@@ -512,12 +493,12 @@ def generate_premium_pdf(df_data, stats, language="English"):
                         processed_row.append(ar(cell_str, max_len=50))
                     else:
                         processed_row.append(cell_str[:50] if len(cell_str) > 50 else cell_str)
-           
+          
             processed_data.append(processed_row)
-       
+      
         t = Table(processed_data, colWidths=widths, repeatRows=1)
         v_padding = 10 if is_ar else 7
-       
+      
         styles = [
             ('BACKGROUND', (0,0), (-1,0), hdr_color),
             ('TEXTCOLOR', (0,0), (-1,0), WHITE),
@@ -535,10 +516,10 @@ def generate_premium_pdf(df_data, stats, language="English"):
             ('TOPPADDING', (0,1), (-1,-1), v_padding),
             ('BOTTOMPADDING', (0,1), (-1,-1), v_padding),
         ]
-       
+      
         if stripe:
             styles.append(('ROWBACKGROUNDS',(0,1), (-1,-1), [WHITE, BG]))
-       
+      
         t.setStyle(TableStyle(styles))
         return t
     def add_chart(fig, w_in=7.5, h_in=3.5):
@@ -571,6 +552,63 @@ def generate_premium_pdf(df_data, stats, language="English"):
             ('ROUNDEDCORNERS', [12,12,12,12]),
         ]))
         return t
+    # Recalculate analytics for filtered data if not provided
+    if analytics is None:
+        closed_statuses = ['Closed', 'Resolved', 'Close (Not Incident)']
+        df_closed = df_data[df_data['Status'].isin(closed_statuses)].copy()
+        df_closed['Effective Close Date'] = df_closed['Closing Date'].where(df_closed['Closing Date'].notna(), df_closed['Resolution Date'])
+        df_closed = df_closed[df_closed['Effective Close Date'].notna()]
+        df_closed['Resolution Time'] = (df_closed['Effective Close Date'] - df_closed['Creation Date']).dt.total_seconds() / 86400
+        df_closed = df_closed[df_closed['Resolution Time'] > 0].dropna(subset=['Resolution Time'])
+        overall_avg = df_closed['Resolution Time'].mean()
+        avg_by_priority = df_closed.groupby('Impact')['Resolution Time'].mean()
+        dept_counts = df_closed['Department'].value_counts().head(10)
+        avg_by_dept = df_closed.groupby('Department')['Resolution Time'].mean().reindex(dept_counts.index)
+        cause_counts = df_closed['Main Category'].value_counts().head(10)
+        avg_by_cause = df_closed.groupby('Main Category')['Resolution Time'].mean().reindex(cause_counts.index)
+        tech_counts = df_closed['Assigned To'].value_counts().head(10)
+        avg_by_tech = df_closed.groupby('Assigned To')['Resolution Time'].mean().reindex(tech_counts.index)
+        df_closed['Month'] = df_closed['Creation Date'].dt.to_period('M')
+        monthly_counts = df_closed['Month'].value_counts().sort_index()
+        avg_monthly = df_closed.groupby('Month')['Resolution Time'].mean().sort_index()
+        priority_dist = df_closed['Impact'].value_counts(normalize=True) * 100
+        top_causes_pct = (cause_counts / len(df_closed)) * 100
+        non_low = df_closed[df_closed['Impact'] != 'Low']
+        dept_non_low_counts = non_low.groupby('Department').size()
+        dept_total = df_closed.groupby('Department').size()
+        dept_non_low_pct = (dept_non_low_counts / dept_total * 100).reindex(dept_counts.index).fillna(0)
+        tech_non_low_counts = non_low.groupby('Assigned To').size().reindex(tech_counts.index).fillna(0)
+        monthly_non_low_counts = non_low.groupby('Month').size()
+        monthly_non_low_pct = (monthly_non_low_counts / monthly_counts * 100).fillna(0)
+        tech_table = pd.DataFrame({
+            'الفني': tech_counts.index,
+            'عدد التذاكر': tech_counts,
+            'متوسط وقت الحل': avg_by_tech
+        }).reset_index(drop=True)
+        pct_24h = (df_closed['Resolution Time'] <= 1).mean() * 100
+        pct_gt3d = (df_closed['Resolution Time'] > 3).mean() * 100
+        pct_gt7d = (df_closed['Resolution Time'] > 7).mean() * 100
+        analytics = {
+            'overall_avg': overall_avg,
+            'avg_by_priority': avg_by_priority,
+            'avg_by_dept': avg_by_dept,
+            'avg_by_cause': avg_by_cause,
+            'avg_by_tech': avg_by_tech,
+            'avg_monthly': avg_monthly,
+            'priority_dist': priority_dist,
+            'cause_counts': cause_counts,
+            'top_causes_pct': top_causes_pct,
+            'dept_counts': dept_counts,
+            'dept_non_low_pct': dept_non_low_pct,
+            'tech_counts': tech_counts,
+            'tech_non_low_counts': tech_non_low_counts,
+            'monthly_counts': monthly_counts,
+            'monthly_non_low_pct': monthly_non_low_pct,
+            'tech_table': tech_table,
+            'pct_24h': pct_24h,
+            'pct_gt3d': pct_gt3d,
+            'pct_gt7d': pct_gt7d
+        }
     # ══════════════════════════════════════════════════════════════
     # COVER PAGE
     # ══════════════════════════════════════════════════════════════
@@ -583,25 +621,25 @@ def generate_premium_pdf(df_data, stats, language="English"):
         cover_sub))
     story.append(Spacer(1, 0.3*inch))
     story.append(HRFlowable(width="50%", thickness=3, color=PRIMARY, spaceBefore=10, spaceAfter=20))
-   
+  
     now = datetime.now()
     story.append(Paragraph(f"<b>Report Date:</b> {now.strftime('%B %d, %Y')}", cover_meta))
     story.append(Paragraph(f"<b>Generated:</b> {now.strftime('%I:%M %p')}", cover_meta))
     story.append(Paragraph(f"<b>Data Source:</b> {uploaded.name}", cover_meta))
     story.append(Paragraph(f"<b>Total Records:</b> {total:,} tickets", cover_meta))
-   
+  
     story.append(Spacer(1, 0.5*inch))
-   
+  
     metrics = [
         ("🎫", "إجمالي التذاكر" if is_ar else "Total Support Tickets", f"{total:,}", ACCENT),
         ("🏢", "الإدارات" if is_ar else "Departments Analyzed", f"{df_data[C_DEPT].nunique()}", SUCCESS),
         ("👨‍💻", "الموظفون" if is_ar else "Active Support Agents", f"{df_data[C_AGENT].dropna().nunique()}", PRIMARY),
     ]
-   
+  
     for icon, label, val, clr in metrics:
         story.append(metric_box(icon, label, val, clr))
         story.append(Spacer(1, 0.12*inch))
-   
+  
     story.append(Spacer(1, 0.8*inch))
     story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor('#d0d7de'), spaceAfter=10))
     story.append(Paragraph(
@@ -615,7 +653,7 @@ def generate_premium_pdf(df_data, stats, language="English"):
         ar("الملخص التنفيذي") if is_ar else "EXECUTIVE SUMMARY",
         h1))
     story.append(Spacer(1, 0.15*inch))
-   
+  
     exec_text = ar(f"""
 يقدم هذا التقرير تحليلا شاملا ومتقدما لأداء مكتب الدعم التقني ويغطي {total:,} تذكرة دعم تم معالجتها
 يكشف التحليل عن مؤشرات الأداء التشغيلية الرئيسية وأنماط توزيع الخدمات ومؤشرات أداء الموظفين بدقة عالية
@@ -637,7 +675,7 @@ high precision. Data quality verification demonstrates {stats['dept_fill']}% dep
         ar("مؤشرات الأداء الرئيسية") if is_ar else "KEY PERFORMANCE INDICATORS",
         h2))
     story.append(Spacer(1, 0.1*inch))
-   
+  
     # ✅ HEADERS ALWAYS IN ENGLISH
     kpi_data = [
         ["Metric", "Value", "Coverage", "Status"], # ✅ English
@@ -656,7 +694,7 @@ high precision. Data quality verification demonstrates {stats['dept_fill']}% dep
          f"{df_data[C_AGENT].dropna().nunique()}", f"{stats['agent_fill']}%",
          "✓" if stats['agent_fill']>80 else "⚠"],
     ]
-   
+  
     story.append(tbl(kpi_data, [2.2*inch, 1.3*inch, 1.1*inch, 0.7*inch], PRIMARY))
     story.append(Spacer(1, 0.2*inch))
     # ══════════════════════════════════════════════════════════════
@@ -666,7 +704,7 @@ high precision. Data quality verification demonstrates {stats['dept_fill']}% dep
         ar("أفضل الأداء والمقاييس الحرجة") if is_ar else "TOP PERFORMERS & CRITICAL METRICS",
         h2))
     story.append(Spacer(1, 0.1*inch))
-   
+  
     # ✅ HEADERS IN ENGLISH, DATA IN ARABIC
     top_data = [
         ["Category", "Top Item", "Volume", "% Share"], # ✅ English
@@ -683,17 +721,17 @@ high precision. Data quality verification demonstrates {stats['dept_fill']}% dep
          f"{int(ta_cnt):,}" if len(_ag) else '0',
          f"{round(ta_cnt/total*100,1)}%" if len(_ag) else '0%'],
     ]
-   
+  
     story.append(tbl(top_data, [1.6*inch, 2.6*inch, 0.9*inch, 0.9*inch], SUCCESS))
     story.append(PageBreak())
     # ══════════════════════════════════════════════════════════════
-    # VISUAL ANALYTICS
+    # VISUAL ANALYTICS - OVERVIEW TAB
     # ══════════════════════════════════════════════════════════════
     story.append(Paragraph(
-        ar("التحليلات المرئية — توزيع الخدمات") if is_ar else "VISUAL ANALYTICS — DISTRIBUTION",
+        ar("التحليلات المرئية — توزيع الخدمات (عامة)") if is_ar else "VISUAL ANALYTICS — DISTRIBUTION (OVERVIEW)",
         h1))
     story.append(Spacer(1, 0.15*inch))
-    svc_df = dff[C_SVC].value_counts().head(8).reset_index()
+    svc_df = df_data[C_SVC].value_counts().head(8).reset_index()
     svc_df.columns = ['Service','Count']
     fig_svc = px.pie(svc_df, values='Count', names='Service',
                      title='Service Type Distribution', hole=0.45,
@@ -706,7 +744,7 @@ high precision. Data quality verification demonstrates {stats['dept_fill']}% dep
                           title_font_size=13, title_font_color='#1f6feb')
     add_chart(fig_svc, 7.5, 3)
     story.append(Spacer(1, 0.15*inch))
-    dv = dff[C_DEPT].value_counts().head(12).reset_index()
+    dv = df_data[C_DEPT].value_counts().head(12).reset_index()
     dv.columns = ['Department','Tickets']
     fig_dept = px.bar(dv, x='Tickets', y='Department', orientation='h',
                       text='Tickets', color='Tickets',
@@ -721,54 +759,204 @@ high precision. Data quality verification demonstrates {stats['dept_fill']}% dep
                            title_font_size=13, title_font_color='#1f6feb')
     fig_dept.update_traces(textposition='outside', marker_line_width=0)
     add_chart(fig_dept, 7.5, 3.5)
+    # Sunburst
+    sun_df = df_data.groupby([C_DEPT, C_SVC, C_MAIN]).size().reset_index(name='Count')
+    fig_sun = px.sunburst(sun_df, path=[C_DEPT, C_SVC, C_MAIN], values='Count', template='plotly_white')
+    fig_sun.update_layout(title='Hierarchical View (Department > Service > Main Category)')
+    add_chart(fig_sun, 7.5, 3.5)
     story.append(PageBreak())
     # ══════════════════════════════════════════════════════════════
-    # DETAILED TABLES (✅ ENGLISH HEADERS)
+    # ISSUES TAB
     # ══════════════════════════════════════════════════════════════
     story.append(Paragraph(
-        ar("التحليل التفصيلي — أعلى المشكلات") if is_ar else "DETAILED ANALYSIS — TOP ISSUES",
+        ar("تحليل فئات المشكلات (المشكلات)") if is_ar else "ISSUE CATEGORY ANALYSIS (ISSUES)",
         h1))
-    story.append(Spacer(1, 0.12*inch))
-    # ✅ ENGLISH HEADERS
+    story.append(Spacer(1, 0.15*inch))
+    d = df_data[C_MAIN].value_counts().head(15).reset_index()  # Using top_n=15 default
+    d.columns=['Issue','Count']
+    fig = px.bar(d,x='Count',y='Issue',orientation='h',color='Count',
+                 color_continuous_scale='Reds',template='plotly_white',text='Count')
+    fig.update_layout(yaxis={'categoryorder':'total ascending'},showlegend=False,coloraxis_showscale=False)
+    add_chart(fig, 7.5, 3.5)
+    # Table
     issue_headers = ["#", "Issue Category", "Count", "%"]
     issue_rows = [issue_headers]
-    for i,(name,cnt) in enumerate(_is.head(18).items(),1):
+    for i,(name,cnt) in enumerate(df_data[C_MAIN].value_counts().head(18).items(),1):
         pct = round(cnt/total*100,1)
         issue_rows.append([str(i), ar(name, max_len=45), f"{int(cnt):,}", f"{pct}%"])
-   
     story.append(tbl(issue_rows, [0.3*inch, 3.8*inch, 0.8*inch, 0.6*inch], DANGER))
-    story.append(Spacer(1, 0.2*inch))
-    story.append(Paragraph(
-        ar("الإدارات — تحليل الحمل") if is_ar else "DEPARTMENTS — WORKLOAD",
-        h2))
-    story.append(Spacer(1, 0.1*inch))
-   
-    # ✅ ENGLISH HEADERS
-    dept_headers = ["#", "Department", "Tickets", "%"]
-    dept_rows = [dept_headers]
-    for i,(name,cnt) in enumerate(_dp.head(18).items(),1):
-        pct = round(cnt/total*100,1)
-        dept_rows.append([str(i), ar(name, max_len=45), f"{int(cnt):,}", f"{pct}%"])
-   
-    story.append(tbl(dept_rows, [0.3*inch, 3.8*inch, 0.8*inch, 0.6*inch], ACCENT))
     story.append(PageBreak())
     # ══════════════════════════════════════════════════════════════
-    # AGENT PERFORMANCE (✅ ENGLISH HEADERS)
+    # DEPARTMENTS TAB
+    # ══════════════════════════════════════════════════════════════
+    story.append(Paragraph(
+        ar("أداء الإدارات (الإدارات)") if is_ar else "DEPARTMENT PERFORMANCE (DEPARTMENTS)",
+        h1))
+    story.append(Spacer(1, 0.15*inch))
+    d = df_data[C_DEPT].value_counts().head(15).reset_index()
+    d.columns=['Dept','Tickets']
+    fig = px.bar(d,x='Tickets',y='Dept',orientation='h',color='Tickets',
+                 color_continuous_scale='Teal',template='plotly_white',text='Tickets')
+    fig.update_layout(yaxis={'categoryorder':'total ascending'},showlegend=False,coloraxis_showscale=False)
+    add_chart(fig, 7.5, 3.5)
+    # Crosstab
+    story.append(Paragraph(
+        ar("جدول متقاطع: الإدارة مقابل الفئة الرئيسية") if is_ar else "CROSSTAB: DEPT VS MAIN CATEGORY",
+        h2))
+    crosstab = pd.crosstab(df_data[C_DEPT].head(10), df_data[C_MAIN].head(10))  # Sample top
+    crosstab_data = [crosstab.columns.tolist()] + crosstab.reset_index().values.tolist()
+    story.append(tbl(crosstab_data, [1*inch] * len(crosstab_data[0]), ACCENT))
+    story.append(PageBreak())
+    # ══════════════════════════════════════════════════════════════
+    # AGENTS TAB
     # ══════════════════════════════════════════════════════════════
     if not df_data[C_AGENT].dropna().empty:
         story.append(Paragraph(
-            ar("أداء الموظفين وتوزيع أحمال العمل") if is_ar else "AGENT PERFORMANCE",
+            ar("أداء الموظفين (الموظفون)") if is_ar else "AGENT PERFORMANCE (AGENTS)",
             h1))
         story.append(Spacer(1, 0.12*inch))
-        # ✅ ENGLISH HEADERS
+        ag = (df_data.dropna(subset=[C_AGENT])
+                 .groupby([C_AGENT,'_short']).size()
+                 .reset_index(name='Tickets')
+                 .sort_values('Tickets',ascending=False)
+                 .head(15))
+        fig = px.bar(ag,x='Tickets',y='_short',orientation='h',color='Tickets',
+                     color_continuous_scale='Viridis',template='plotly_white',text='Tickets')
+        fig.update_layout(yaxis={'categoryorder':'total ascending','title':'Agent'},
+                          showlegend=False,coloraxis_showscale=False)
+        add_chart(fig, 7.5, 3.5)
+        # Table
         agent_headers = ["#", "Agent Name", "Tickets", "%"]
         agent_rows = [agent_headers]
-        for i,(name,cnt) in enumerate(_ag.head(20).items(),1):
+        for i,(name,cnt) in enumerate(df_data[C_AGENT].value_counts().head(20).items(),1):
             pct = round(cnt/total*100,1)
             agent_rows.append([str(i), ar(str(name), max_len=42), f"{int(cnt):,}", f"{pct}%"])
-       
         story.append(tbl(agent_rows, [0.3*inch, 3.8*inch, 0.8*inch, 0.6*inch], SUCCESS))
         story.append(Spacer(1, 0.2*inch))
+    story.append(PageBreak())
+    # ══════════════════════════════════════════════════════════════
+    # TRENDS TAB
+    # ══════════════════════════════════════════════════════════════
+    story.append(Paragraph(
+        ar("تحليل التوجهات (التوجهات)") if is_ar else "TRENDS ANALYSIS (TRENDS)",
+        h1))
+    story.append(Spacer(1, 0.15*inch))
+    # Departments bar
+    td_data = df_data[C_DEPT].value_counts().head(10)
+    fig_td = go.Figure(go.Bar(x=td_data.values,y=td_data.index,orientation='h',
+        marker=dict(color=td_data.values,colorscale='Teal'),text=td_data.values,textposition='outside'))
+    fig_td.update_layout(yaxis={'categoryorder':'total ascending'},showlegend=False,
+                         paper_bgcolor='white',plot_bgcolor='white',font_color='#24292f',
+                         margin=dict(l=10,r=10,t=40,b=10),
+                         title='Top Departments by Volume')
+    add_chart(fig_td, 7.5, 3.5)
+    # Issues bar
+    ti_data = df_data[C_MAIN].value_counts().head(10)
+    fig_ti = go.Figure(go.Bar(x=ti_data.values,y=ti_data.index,orientation='h',
+        marker=dict(color=ti_data.values,colorscale='Reds'),text=ti_data.values,textposition='outside'))
+    fig_ti.update_layout(yaxis={'categoryorder':'total ascending'},showlegend=False,
+                         paper_bgcolor='white',plot_bgcolor='white',font_color='#24292f',
+                         margin=dict(l=10,r=10,t=40,b=10),
+                         title='Top Issues by Volume')
+    add_chart(fig_ti, 7.5, 3.5)
+    # Heatmap
+    heat_df = pd.crosstab(df_data[C_DEPT], df_data[C_MAIN])
+    fig_heat = px.imshow(heat_df.head(10), text_auto=True, aspect="auto", color_continuous_scale='YlGnBu', template='plotly_white')
+    fig_heat.update_layout(title='Heatmap: Dept vs Issue (Top 10 Depts)')
+    add_chart(fig_heat, 7.5, 4)
+    story.append(PageBreak())
+    # ══════════════════════════════════════════════════════════════
+    # RAW DATA TAB
+    # ══════════════════════════════════════════════════════════════
+    story.append(Paragraph(
+        ar("عينة من البيانات الخام (البيانات)") if is_ar else "RAW DATA SAMPLE (DATA)",
+        h1))
+    story.append(Spacer(1, 0.15*inch))
+    sd = df_data.drop(columns=['_short'],errors='ignore').head(20)  # Top 20 rows sample
+    raw_headers = list(sd.columns)  # English headers
+    raw_data = [raw_headers] + sd.values.tolist()
+    story.append(tbl(raw_data, [0.8*inch] * len(raw_headers), PRIMARY, stripe=True))
+    story.append(PageBreak())
+    # ══════════════════════════════════════════════════════════════
+    # SUB CATEGORIES TAB
+    # ══════════════════════════════════════════════════════════════
+    story.append(Paragraph(
+        ar("تحليل الفئات الفرعية (الفئات الفرعية)") if is_ar else "SUB CATEGORY ANALYSIS (SUB CATEGORIES)",
+        h1))
+    story.append(Spacer(1, 0.15*inch))
+    sub_data = df_data[C_SUB].value_counts().head(15).reset_index()
+    sub_data.columns = ['Sub Category', 'Count']
+    fig_sub = px.bar(sub_data, x='Count', y='Sub Category', orientation='h', color='Count',
+                     color_continuous_scale='Oranges', template='plotly_white', text='Count')
+    fig_sub.update_layout(yaxis={'categoryorder':'total ascending'}, showlegend=False, coloraxis_showscale=False,
+                          title='Top Sub Categories')
+    add_chart(fig_sub, 7.5, 3.5)
+    # Table
+    sub_headers = ["#", "Sub Category", "Count"]
+    sub_rows = [sub_headers]
+    for i,(name,cnt) in enumerate(df_data[C_SUB].value_counts().head(18).items(),1):
+        sub_rows.append([str(i), ar(name, max_len=45), f"{int(cnt):,}"])
+    story.append(tbl(sub_rows, [0.3*inch, 4*inch, 1.2*inch], colors.orange))
+    story.append(PageBreak())
+    # ══════════════════════════════════════════════════════════════
+    # ADVANCED ANALYTICS TAB
+    # ══════════════════════════════════════════════════════════════
+    story.append(Paragraph(
+        ar("التحليلات المتقدمة (تحليلات متقدمة)") if is_ar else "ADVANCED ANALYTICS",
+        h1))
+    story.append(Spacer(1, 0.15*inch))
+    story.append(Paragraph(f"Overall Average: {analytics['overall_avg']:.2f} days", h2))
+    # Avg by priority
+    story.append(Paragraph("Average by Priority", h3))
+    pri_data = [["Priority", "Avg Days"]] + [[str(idx), f"{val:.2f}"] for idx, val in analytics['avg_by_priority'].items()]
+    story.append(tbl(pri_data, [2.5*inch, 2.5*inch], ACCENT))
+    # Avg by dept
+    story.append(Paragraph("Average by Department (Top 10)", h3))
+    dept_data = [["Department", "Avg Days"]] + [[ar(str(idx),40), f"{val:.2f}"] for idx, val in analytics['avg_by_dept'].items()]
+    story.append(tbl(dept_data, [3*inch, 2*inch], SUCCESS))
+    # Avg by cause
+    story.append(Paragraph("Average by Cause (Top 10)", h3))
+    cause_data = [["Cause", "Avg Days"]] + [[ar(str(idx),40), f"{val:.2f}"] for idx, val in analytics['avg_by_cause'].items()]
+    story.append(tbl(cause_data, [3*inch, 2*inch], DANGER))
+    # Avg by tech
+    story.append(Paragraph("Average by Technician (Top 10)", h3))
+    tech_data = [["Technician", "Avg Days"]] + [[ar(str(idx),40), f"{val:.2f}"] for idx, val in analytics['avg_by_tech'].items()]
+    story.append(tbl(tech_data, [3*inch, 2*inch], PRIMARY))
+    story.append(PageBreak())
+    # Monthly avg
+    story.append(Paragraph("Monthly Average", h3))
+    monthly_data = [["Month", "Avg Days"]] + [[str(idx), f"{val:.2f}"] for idx, val in analytics['avg_monthly'].items()]
+    story.append(tbl(monthly_data, [2.5*inch, 2.5*inch], ACCENT))
+    # Priority dist
+    story.append(Paragraph("Priority Distribution", h3))
+    pri_dist_data = [["Priority", "%"]] + [[str(idx), f"{val:.2f}%"] for idx, val in analytics['priority_dist'].items()]
+    story.append(tbl(pri_dist_data, [2.5*inch, 2.5*inch], SUCCESS))
+    # Top causes
+    story.append(Paragraph("Top 10 Causes", h3))
+    top_causes_data = [["Cause", "Count", "%"]] + [[ar(str(analytics['cause_counts'].index[i]),40), str(analytics['cause_counts'][i]), f"{analytics['top_causes_pct'][i]:.2f}%"] for i in range(len(analytics['cause_counts']))]
+    story.append(tbl(top_causes_data, [2*inch, 1.5*inch, 1.5*inch], DANGER))
+    # Dept non-low
+    story.append(Paragraph("Per Department (Count, Avg, % non-Low)", h3))
+    dept_non_data = [["Department", "Count", "Avg", "% non-Low"]] + [[ar(str(analytics['dept_counts'].index[i]),40), str(analytics['dept_counts'][i]), f"{analytics['avg_by_dept'][i]:.2f}", f"{analytics['dept_non_low_pct'][i]:.2f}%"] for i in range(len(analytics['dept_counts']))]
+    story.append(tbl(dept_non_data, [1.5*inch, 1.2*inch, 1.2*inch, 1.5*inch], SUCCESS))
+    story.append(PageBreak())
+    # Tech non-low
+    story.append(Paragraph("Per Technician (Count, Avg, non-Low Count)", h3))
+    tech_non_data = [["Technician", "Count", "Avg", "non-Low Count"]] + [[ar(str(analytics['tech_counts'].index[i]),40), str(analytics['tech_counts'][i]), f"{analytics['avg_by_tech'][i]:.2f}", str(analytics['tech_non_low_counts'][i])] for i in range(len(analytics['tech_counts']))]
+    story.append(tbl(tech_non_data, [1.5*inch, 1.2*inch, 1.2*inch, 1.5*inch], PRIMARY))
+    # Monthly non-low
+    story.append(Paragraph("Monthly (Count, Avg, % non-Low)", h3))
+    monthly_non_data = [["Month", "Count", "Avg", "% non-Low"]] + [[str(analytics['monthly_counts'].index[i]), str(analytics['monthly_counts'][i]), f"{analytics['avg_monthly'][i]:.2f}", f"{analytics['monthly_non_low_pct'][i]:.2f}%"] for i in range(len(analytics['monthly_counts']))]
+    story.append(tbl(monthly_non_data, [1.5*inch, 1.2*inch, 1.2*inch, 1.5*inch], ACCENT))
+    # Tech table
+    story.append(Paragraph("Tech Table", h3))
+    tech_table_data = analytics['tech_table'].to_records(index=False)
+    tech_table_headers = list(analytics['tech_table'].columns)
+    story.append(tbl([tech_table_headers] + list(tech_table_data), [2*inch, 1.5*inch, 1.5*inch], SUCCESS))
+    # Percentages
+    story.append(Paragraph(f"% Closed in 24h: {analytics['pct_24h']:.2f}%", body))
+    story.append(Paragraph(f"% >3 days: {analytics['pct_gt3d']:.2f}%", body))
+    story.append(Paragraph(f"% >7 days: {analytics['pct_gt7d']:.2f}%", body))
     # FOOTER
     story.append(Spacer(1, 0.4*inch))
     story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor('#d0d7de'), spaceAfter=10))
@@ -806,7 +994,7 @@ tab1,tab2,tab3,tab4,tab5,tab6,tab7,tab8 = st.tabs([
     tx['tab_agents'], tx['tab_trend'], tx['tab_raw'], tx['tab_sub'], tx['tab_analytics']])
 with tab1:
     sec("📌 KEY PERFORMANCE INDICATORS")
-    k1,k2,k3,k4,k5,k6,k7 = st.columns(7)  # Expanded for new KPIs
+    k1,k2,k3,k4,k5,k6,k7 = st.columns(7) # Expanded for new KPIs
     for col,(ico,val,lbl) in zip([k1,k2,k3,k4,k5,k6,k7],[
         ("🎫",len(dff),tx['total_rec']),
         ("🏢",dff[C_DEPT].nunique(),tx['departments']),
@@ -945,55 +1133,44 @@ with tab8:
     sec("📈 تحليلات متقدمة" if lang == 'AR' else "Advanced Analytics")
     # Display overall average
     st.markdown(f"### المتوسط العام للسنة: {analytics['overall_avg']:.2f} يوم")
-    
+   
     # Average by priority
     st.markdown("### المتوسط حسب الأولوية")
     st.dataframe(analytics['avg_by_priority'])
-
     # Average by department
     st.markdown("### المتوسط حسب الإدارة (أعلى 10)")
     st.dataframe(analytics['avg_by_dept'])
-
     # Average by cause
     st.markdown("### المتوسط حسب السبب (أعلى 10)")
     st.dataframe(analytics['avg_by_cause'])
-
     # Average by technician
     st.markdown("### المتوسط حسب الفني (أعلى 10)")
     st.dataframe(analytics['avg_by_tech'])
-
     # Monthly average
     st.markdown("### المتوسط الشهري")
     st.dataframe(analytics['avg_monthly'])
-
     # Priority distribution
     st.markdown("### توزيع الأولويات")
     st.dataframe(analytics['priority_dist'])
-
     # Top 10 causes
     st.markdown("### أعلى 10 أسباب")
     top_causes_df = pd.DataFrame({'السبب': analytics['cause_counts'], 'النسبة': analytics['top_causes_pct']})
     st.dataframe(top_causes_df)
-
     # Per department
     st.markdown("### لكل إدارة (عدد, متوسط, نسبة High)")
     dept_df = pd.DataFrame({'عدد التذاكر': analytics['dept_counts'], 'متوسط': analytics['avg_by_dept'], 'نسبة non-Low': analytics['dept_non_low_pct']})
     st.dataframe(dept_df)
-
     # Per technician
     st.markdown("### لكل فني (عدد, متوسط, عدد non-Low)")
     tech_df = pd.DataFrame({'عدد التذاكر': analytics['tech_counts'], 'متوسط': analytics['avg_by_tech'], 'عدد non-Low': analytics['tech_non_low_counts']})
     st.dataframe(tech_df)
-
     # Monthly
     st.markdown("### شهرياً (عدد, متوسط, نسبة non-Low)")
     monthly_df = pd.DataFrame({'عدد': analytics['monthly_counts'], 'متوسط': analytics['avg_monthly'], 'نسبة non-Low': analytics['monthly_non_low_pct']})
     st.dataframe(monthly_df)
-
     # Tech table
     st.markdown("### جدول الفنيين")
     st.dataframe(analytics['tech_table'])
-
     # Percentages
     st.markdown(f"### نسبة البلاغات المغلقة خلال 24 ساعة: {analytics['pct_24h']:.2f}%")
     st.markdown(f"### نسبة البلاغات >3 أيام: {analytics['pct_gt3d']:.2f}%")
@@ -1022,7 +1199,7 @@ with p2:
     if st.button("📥 Generate Perfect PDF", use_container_width=True, type="primary"):
         with st.spinner(f"🎨 Creating perfect {pdf_lang} PDF..."):
             try:
-                buf = generate_premium_pdf(dff, acc, pdf_lang)
+                buf = generate_premium_pdf(dff, acc, pdf_lang, analytics)
                 st.success(f"✅ Perfect {pdf_lang} PDF Generated!")
                 st.download_button(
                     label=f"⬇️ DOWNLOAD PERFECT {pdf_lang.upper()} PDF",
