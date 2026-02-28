@@ -15,8 +15,6 @@
 # 10. Added sunburst chart for hierarchical view (Department > Service > Main Category) in Overview tab.
 # Note: Word cloud feature removed due to missing 'wordcloud' module in the environment.
 # New: Added advanced analytics as per user requirements in a new tab 'Analytics Summary'
-# New: Added download button for analytics data as Excel (in Arabic format) for PPT use
-# Fixed: Date conversion to datetime for proper calculations, fixed timedelta error by conditional conversion
 # ================================================================
 import streamlit as st
 import pandas as pd
@@ -185,8 +183,7 @@ T = {
         'sub_filter': '📑 الفئة الفرعية', 'agent_filter': '👨‍💻 الموظف',
         'tab_sub': '📑 الفئات الفرعية', 'avg_tickets': 'متوسط التذاكر لكل موظف',
         'unique_subs': 'الفئات الفرعية الفريدة',
-        'tab_analytics': '📈 تحليلات متقدمة',
-        'download_excel': '⬇️ تحميل التحليلات كملف Excel (بالعربية)'
+        'tab_analytics': '📈 تحليلات متقدمة'
     },
     'EN': {
         'title':'IT Helpdesk Analytics','subtitle':'Premium Enterprise Report',
@@ -200,8 +197,7 @@ T = {
         'sub_filter': '📑 Sub Category', 'agent_filter': '👨‍💻 Agent',
         'tab_sub': '📑 Sub Categories', 'avg_tickets': 'Avg Tickets/Agent',
         'unique_subs': 'Unique Sub Categories',
-        'tab_analytics': '📈 Advanced Analytics',
-        'download_excel': '⬇️ Download Analytics as Excel (in Arabic)'
+        'tab_analytics': '📈 Advanced Analytics'
     }
 }
 # ── SIDEBAR ──────────────────────────────────────────────────────
@@ -275,12 +271,6 @@ def load_data(rb):
     # ✅ RENAME COLUMNS TO ENGLISH
     df = df.rename(columns=COLUMN_MAP)
    
-    # Convert Excel float dates to datetime if numeric
-    excel_origin = pd.to_datetime('1899-12-30')
-    for col in [C_CREATE, C_CLOSE, C_RESOLVE]:
-        if col in df and pd.api.types.is_numeric_dtype(df[col]):
-            df[col] = excel_origin + pd.to_timedelta(df[col], unit='D')
-   
     # Calculate accuracy stats
     acc = {
         'total': len(df),
@@ -291,15 +281,15 @@ def load_data(rb):
     }
 
     # Advanced analytics calculations
-    # Filter closed tickets - include 'Closed', 'Resolved', 'Close (Not Incident)', 'Waiting for 3rd Party'
-    closed_statuses = ['Closed', 'Resolved', 'Close (Not Incident)', 'Waiting for 3rd Party']
+    # Filter closed tickets - include 'Closed', 'Resolved', 'Close (Not Incident)'
+    closed_statuses = ['Closed', 'Resolved', 'Close (Not Incident)']
     df_closed = df[df['Status'].isin(closed_statuses)].copy()
 
     # Use Closing Date if not NaN, else Resolution Date
     df_closed['Effective Close Date'] = df_closed['Closing Date'].where(df_closed['Closing Date'].notna(), df_closed['Resolution Date'])
 
-    # Drop if Effective Close Date NaN or Creation Date NaN
-    df_closed = df_closed[df_closed['Effective Close Date'].notna() & df_closed['Creation Date'].notna()]
+    # Drop if Effective Close Date NaN
+    df_closed = df_closed[df_closed['Effective Close Date'].notna()]
 
     # Resolution time in days
     df_closed['Resolution Time'] = (df_closed['Effective Close Date'] - df_closed['Creation Date']).dt.total_seconds() / 86400
@@ -441,55 +431,6 @@ def fig_to_png(fig, w=900, h=420):
         return fig.to_image(format="png", width=w, height=h, scale=2)
     except:
         return None
-# Function to generate Excel with analytics data in Arabic
-def generate_analytics_excel(analytics, lang='AR'):
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        # Overall average
-        pd.DataFrame({'المتوسط العام للسنة': [analytics['overall_avg']]}).to_excel(writer, sheet_name='متوسط عام', index=False)
-        
-        # Average by priority
-        analytics['avg_by_priority'].reset_index().rename(columns={'index': 'الأولوية', 'Resolution Time': 'المتوسط (أيام)'}).to_excel(writer, sheet_name='حسب الأولوية', index=False)
-        
-        # Average by dept
-        analytics['avg_by_dept'].reset_index().rename(columns={'Department': 'الإدارة', 'Resolution Time': 'المتوسط (أيام)'}).to_excel(writer, sheet_name='حسب الإدارة', index=False)
-        
-        # Average by cause
-        analytics['avg_by_cause'].reset_index().rename(columns={'Main Category': 'السبب', 'Resolution Time': 'المتوسط (أيام)'}).to_excel(writer, sheet_name='حسب السبب', index=False)
-        
-        # Average by tech
-        analytics['avg_by_tech'].reset_index().rename(columns={'Assigned To': 'الفني', 'Resolution Time': 'المتوسط (أيام)'}).to_excel(writer, sheet_name='حسب الفني', index=False)
-        
-        # Monthly average
-        analytics['avg_monthly'].reset_index().rename(columns={'Month': 'الشهر', 'Resolution Time': 'المتوسط (أيام)'}).to_excel(writer, sheet_name='شهري', index=False)
-        
-        # Priority dist
-        analytics['priority_dist'].reset_index().rename(columns={'index': 'الأولوية', 'Impact': 'النسبة (%)'}).to_excel(writer, sheet_name='توزيع الأولويات', index=False)
-        
-        # Top causes
-        pd.DataFrame({'السبب': analytics['cause_counts'].index, 'العدد': analytics['cause_counts'], 'النسبة (%)': analytics['top_causes_pct']}).to_excel(writer, sheet_name='أعلى 10 أسباب', index=False)
-        
-        # Dept counts etc
-        pd.DataFrame({'الإدارة': analytics['dept_counts'].index, 'عدد التذاكر': analytics['dept_counts'], 'متوسط': analytics['avg_by_dept'], 'نسبة non-Low': analytics['dept_non_low_pct']}).to_excel(writer, sheet_name='لكل إدارة', index=False)
-        
-        # Tech counts etc
-        pd.DataFrame({'الفني': analytics['tech_counts'].index, 'عدد التذاكر': analytics['tech_counts'], 'متوسط': analytics['avg_by_tech'], 'عدد non-Low': analytics['tech_non_low_counts']}).to_excel(writer, sheet_name='لكل فني', index=False)
-        
-        # Monthly counts etc
-        pd.DataFrame({'الشهر': analytics['monthly_counts'].index, 'عدد': analytics['monthly_counts'], 'متوسط': analytics['avg_monthly'], 'نسبة non-Low': analytics['monthly_non_low_pct']}).to_excel(writer, sheet_name='شهرياً', index=False)
-        
-        # Tech table
-        analytics['tech_table'].to_excel(writer, sheet_name='جدول الفنيين', index=False)
-        
-        # Percentages
-        pd.DataFrame({
-            'نسبة البلاغات خلال 24 ساعة': [analytics['pct_24h']],
-            'نسبة >3 أيام': [analytics['pct_gt3d']],
-            'نسبة >7 أيام': [analytics['pct_gt7d']]
-        }).to_excel(writer, sheet_name='نسب إضافية', index=False)
-    
-    output.seek(0)
-    return output
 # ══════════════════════════════════════════════════════════════════
 # PERFECT PDF GENERATOR (English Headers + Arabic Content)
 # ══════════════════════════════════════════════════════════════════
@@ -824,4 +765,277 @@ high precision. Data quality verification demonstrates {stats['dept_fill']}% dep
         agent_rows = [agent_headers]
         for i,(name,cnt) in enumerate(_ag.head(20).items(),1):
             pct = round(cnt/total*100,1)
-            agent_rows.append([str
+            agent_rows.append([str(i), ar(str(name), max_len=42), f"{int(cnt):,}", f"{pct}%"])
+       
+        story.append(tbl(agent_rows, [0.3*inch, 3.8*inch, 0.8*inch, 0.6*inch], SUCCESS))
+        story.append(Spacer(1, 0.2*inch))
+    # FOOTER
+    story.append(Spacer(1, 0.4*inch))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor('#d0d7de'), spaceAfter=10))
+    story.append(Paragraph(
+        f"IT Helpdesk Analytics | {now.strftime('%B %Y')} | Tarique Siddique",
+        footer))
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
+# ══════════════════════════════════════════════════════════════════
+# DASHBOARD UI
+# ══════════════════════════════════════════════════════════════════
+badge = (' <span style="background:rgba(210,153,34,.15);color:#d29922;padding:4px 14px;'
+         'border-radius:20px;font-size:.72rem;font-weight:900;border:1px solid rgba(210,153,34,.3)">🔽 FILTERED</span>') if filtered else ""
+st.markdown(
+    f"<div class='premium-header'>"
+    "<div style='display:flex;align-items:center;gap:22px;position:relative;z-index:1'>"
+    "<div style='background:linear-gradient(135deg,#1f6feb,#58a6ff);border-radius:22px;"
+    "padding:18px 22px;font-size:2.6rem;box-shadow:0 8px 32px rgba(31,111,235,.4)'>🖥️</div>"
+    "<div style='flex:1'>"
+    f"<h1 style='color:#58a6ff;margin:0;font-size:2rem;font-weight:900;"
+    f"letter-spacing:1px;text-shadow:0 2px 12px rgba(88,166,255,.3)'>{tx['title']}</h1>"
+    f"<div style='color:#7d8590;margin-top:6px;font-size:.82rem;font-weight:600;letter-spacing:.3px'>{tx['subtitle']}</div>"
+    "<div style='color:#7d8590;margin-top:10px;font-size:.84rem;display:flex;gap:16px;flex-wrap:wrap'>"
+    f"<span>📄 <b style='color:#c9d1d9'>{uploaded.name}</b></span>"
+    "<span style='color:#30363d'>│</span>"
+    f"<span>🗂️ <b style='color:#c9d1d9'>{len(df):,}</b> total</span>"
+    "<span style='color:#30363d'>│</span>"
+    f"<span>🔽 <b style='color:#58a6ff'>{len(dff):,}</b> shown</span>"
+    f"{badge}</div></div></div></div>",
+    unsafe_allow_html=True)
+# Add new tab for Analytics
+tab1,tab2,tab3,tab4,tab5,tab6,tab7,tab8 = st.tabs([
+    tx['tab_overview'], tx['tab_issues'], tx['tab_dept'],
+    tx['tab_agents'], tx['tab_trend'], tx['tab_raw'], tx['tab_sub'], tx['tab_analytics']])
+with tab1:
+    sec("📌 KEY PERFORMANCE INDICATORS")
+    k1,k2,k3,k4,k5,k6,k7 = st.columns(7)  # Expanded for new KPIs
+    for col,(ico,val,lbl) in zip([k1,k2,k3,k4,k5,k6,k7],[
+        ("🎫",len(dff),tx['total_rec']),
+        ("🏢",dff[C_DEPT].nunique(),tx['departments']),
+        ("⚙️",dff[C_SVC].nunique(),tx['svc_types']),
+        ("🔥",dff[C_MAIN].nunique(),tx['issue_types']),
+        ("👨‍💻",dff[C_AGENT].dropna().nunique(),tx['agents']),
+        # New Feature 6: New KPIs
+        ("📊", round(len(dff) / max(dff[C_AGENT].nunique(), 1), 2), tx['avg_tickets']),
+        ("📑", dff[C_SUB].nunique(), tx['unique_subs']),
+    ]):
+        with col:
+            st.markdown(
+                f"<div class='kpi-premium'><span class='kpi-icon'>{ico}</span>"
+                f"<span class='kpi-num'>{val:,}</span>"
+                f"<span class='kpi-lbl'>{lbl}</span></div>",
+                unsafe_allow_html=True)
+    sec("🤖 INTELLIGENT INSIGHTS")
+    i1,i2,i3 = st.columns(3)
+    with i1:
+        st.markdown(f"<div class='insight-card'><div class='insight-badge'>TOP DEPARTMENT</div>"
+                    f"<div class='insight-text'><b style='color:#58a6ff'>{td_name[:30]}</b><br>"
+                    f"{td_cnt:,} tickets • {round(td_cnt/len(dff)*100,1)}%</div></div>",
+                    unsafe_allow_html=True)
+    with i2:
+        st.markdown(f"<div class='insight-card'><div class='insight-badge'>TOP ISSUE</div>"
+                    f"<div class='insight-text'><b style='color:#f85149'>{ti_name[:30]}</b><br>"
+                    f"{ti_cnt:,} occurrences • {round(ti_cnt/len(dff)*100,1)}%</div></div>",
+                    unsafe_allow_html=True)
+    with i3:
+        st.markdown(f"<div class='insight-card'><div class='insight-badge'>COVERAGE</div>"
+                    f"<div class='insight-text'><b style='color:#3fb950'>{cov}%</b> Assignment<br>"
+                    f"Agent: <b>{ta_name[:25]}</b> • {ta_cnt:,} tickets</div></div>",
+                    unsafe_allow_html=True)
+    # New Feature 5: Pie chart for Service distribution
+    sec("⚙️ SERVICE DISTRIBUTION")
+    svc_df = dff[C_SVC].value_counts().reset_index()
+    svc_df.columns = ['Service', 'Count']
+    fig_svc = px.pie(svc_df, values='Count', names='Service', title='Service Distribution', template=theme)
+    st.plotly_chart(fig_svc, use_container_width=True)
+    # New Feature 10: Sunburst chart
+    sec("🌞 HIERARCHICAL VIEW")
+    sun_df = dff.groupby([C_DEPT, C_SVC, C_MAIN]).size().reset_index(name='Count')
+    fig_sun = px.sunburst(sun_df, path=[C_DEPT, C_SVC, C_MAIN], values='Count', template=theme)
+    st.plotly_chart(fig_sun, use_container_width=True)
+with tab2:
+    sec("🔥 ISSUE CATEGORY ANALYSIS")
+    d = dff[C_MAIN].value_counts().head(top_n).reset_index(); d.columns=['Issue','Count']
+    fig = px.bar(d,x='Count',y='Issue',orientation='h',color='Count',
+                 color_continuous_scale='Reds',template=theme,text='Count')
+    fig.update_layout(yaxis={'categoryorder':'total ascending'},showlegend=False,coloraxis_showscale=False)
+    st.plotly_chart(ccfg(fig,max(400,top_n*35)),use_container_width=True)
+    st.dataframe(d,use_container_width=True,height=450)
+with tab3:
+    sec("🏢 DEPARTMENT PERFORMANCE")
+    d = dff[C_DEPT].value_counts().head(top_n).reset_index(); d.columns=['Dept','Tickets']
+    fig = px.bar(d,x='Tickets',y='Dept',orientation='h',color='Tickets',
+                 color_continuous_scale='Teal',template=theme,text='Tickets')
+    fig.update_layout(yaxis={'categoryorder':'total ascending'},showlegend=False,coloraxis_showscale=False)
+    st.plotly_chart(ccfg(fig,520),use_container_width=True)
+    st.dataframe(d,use_container_width=True,height=450)
+    # New Feature 4: Crosstab for Department vs Main Category
+    sec("🔀 CROSSTAB: DEPT VS ISSUE")
+    crosstab = pd.crosstab(dff[C_DEPT], dff[C_MAIN])
+    st.dataframe(crosstab, use_container_width=True)
+with tab4:
+    if dff[C_AGENT].dropna().empty:
+        st.info("⚠️ No agent data available")
+    else:
+        sec("👨‍💻 AGENT WORKLOAD")
+        ag = (dff.dropna(subset=[C_AGENT])
+                 .groupby([C_AGENT,'_short']).size()
+                 .reset_index(name='Tickets')
+                 .sort_values('Tickets',ascending=False)
+                 .head(top_n))
+        fig = px.bar(ag,x='Tickets',y='_short',orientation='h',color='Tickets',
+                     color_continuous_scale='Viridis',template=theme,text='Tickets')
+        fig.update_layout(yaxis={'categoryorder':'total ascending','title':'Agent'},
+                          showlegend=False,coloraxis_showscale=False)
+        st.plotly_chart(ccfg(fig,580),use_container_width=True)
+        st.dataframe(ag[[C_AGENT,'Tickets']],use_container_width=True,height=450)
+with tab5:
+    sec("📈 TREND ANALYSIS")
+    t1,t2 = st.columns(2)
+    with t1:
+        st.markdown("<div style='color:#58a6ff;font-weight:900;margin-bottom:16px'>🏢 Departments</div>",
+                    unsafe_allow_html=True)
+        td_data = dff[C_DEPT].value_counts().head(10)
+        fig_td = go.Figure(go.Bar(x=td_data.values,y=td_data.index,orientation='h',
+            marker=dict(color=td_data.values,colorscale='Teal'),text=td_data.values,textposition='outside'))
+        fig_td.update_layout(yaxis={'categoryorder':'total ascending'},showlegend=False,height=450,
+                             paper_bgcolor='rgba(0,0,0,0)',plot_bgcolor='rgba(0,0,0,0)',font_color='#c9d1d9')
+        st.plotly_chart(fig_td,use_container_width=True)
+    with t2:
+        st.markdown("<div style='color:#f85149;font-weight:900;margin-bottom:16px'>🔥 Issues</div>",
+                    unsafe_allow_html=True)
+        ti_data = dff[C_MAIN].value_counts().head(10)
+        fig_ti = go.Figure(go.Bar(x=ti_data.values,y=ti_data.index,orientation='h',
+            marker=dict(color=ti_data.values,colorscale='Reds'),text=ti_data.values,textposition='outside'))
+        fig_ti.update_layout(yaxis={'categoryorder':'total ascending'},showlegend=False,height=450,
+                             paper_bgcolor='rgba(0,0,0,0)',plot_bgcolor='rgba(0,0,0,0)',font_color='#c9d1d9')
+        st.plotly_chart(fig_ti,use_container_width=True)
+    # New Feature 9: Heatmap for Department vs Issue
+    sec("🌡️ HEATMAP: DEPT VS ISSUE")
+    heat_df = pd.crosstab(dff[C_DEPT], dff[C_MAIN])
+    fig_heat = px.imshow(heat_df, text_auto=True, aspect="auto", color_continuous_scale='YlGnBu', template=theme)
+    st.plotly_chart(fig_heat, use_container_width=True)
+with tab6:
+    sec("🗃️ RAW DATA EXPLORER")
+    sd = dff.drop(columns=['_short'],errors='ignore').copy()
+    c1,c2 = st.columns([1,3])
+    with c1: fc = st.selectbox("Column",[tx['all']]+sd.columns.tolist())
+    with c2: sr = st.text_input("🔍 Search","")
+    if sr:
+        mask = (sd.apply(lambda c: c.astype(str).str.contains(sr,case=False,na=False)).any(axis=1)
+                if fc==tx['all'] else sd[fc].astype(str).str.contains(sr,case=False,na=False))
+        sd = sd[mask]
+    st.markdown(f"<div style='color:#7d8590;margin-bottom:8px'>"
+                f"<b style='color:#58a6ff'>{len(sd):,}</b> of {len(df):,} records</div>",
+                unsafe_allow_html=True)
+    st.dataframe(sd,use_container_width=True,height=550)
+    # New Feature 8: CSV export
+    csv = sd.to_csv(index=False).encode('utf-8')
+    st.download_button("⬇️ Download Filtered CSV", csv, "filtered_data.csv", "text/csv", use_container_width=True)
+# New Feature 3: Sub Category tab
+with tab7:
+    sec("📑 SUB CATEGORY ANALYSIS")
+    sub_data = dff[C_SUB].value_counts().head(top_n).reset_index()
+    sub_data.columns = ['Sub Category', 'Count']
+    fig_sub = px.bar(sub_data, x='Count', y='Sub Category', orientation='h', color='Count',
+                     color_continuous_scale='Oranges', template=theme, text='Count')
+    fig_sub.update_layout(yaxis={'categoryorder':'total ascending'}, showlegend=False, coloraxis_showscale=False)
+    st.plotly_chart(ccfg(fig_sub, max(400, top_n*35)), use_container_width=True)
+    st.dataframe(sub_data, use_container_width=True, height=450)
+# New tab for Analytics Summary
+with tab8:
+    sec("📈 تحليلات متقدمة" if lang == 'AR' else "Advanced Analytics")
+    # Display overall average
+    st.markdown(f"### المتوسط العام للسنة: {analytics['overall_avg']:.2f} يوم")
+    
+    # Average by priority
+    st.markdown("### المتوسط حسب الأولوية")
+    st.dataframe(analytics['avg_by_priority'])
+
+    # Average by department
+    st.markdown("### المتوسط حسب الإدارة (أعلى 10)")
+    st.dataframe(analytics['avg_by_dept'])
+
+    # Average by cause
+    st.markdown("### المتوسط حسب السبب (أعلى 10)")
+    st.dataframe(analytics['avg_by_cause'])
+
+    # Average by technician
+    st.markdown("### المتوسط حسب الفني (أعلى 10)")
+    st.dataframe(analytics['avg_by_tech'])
+
+    # Monthly average
+    st.markdown("### المتوسط الشهري")
+    st.dataframe(analytics['avg_monthly'])
+
+    # Priority distribution
+    st.markdown("### توزيع الأولويات")
+    st.dataframe(analytics['priority_dist'])
+
+    # Top 10 causes
+    st.markdown("### أعلى 10 أسباب")
+    top_causes_df = pd.DataFrame({'السبب': analytics['cause_counts'], 'النسبة': analytics['top_causes_pct']})
+    st.dataframe(top_causes_df)
+
+    # Per department
+    st.markdown("### لكل إدارة (عدد, متوسط, نسبة High)")
+    dept_df = pd.DataFrame({'عدد التذاكر': analytics['dept_counts'], 'متوسط': analytics['avg_by_dept'], 'نسبة non-Low': analytics['dept_non_low_pct']})
+    st.dataframe(dept_df)
+
+    # Per technician
+    st.markdown("### لكل فني (عدد, متوسط, عدد non-Low)")
+    tech_df = pd.DataFrame({'عدد التذاكر': analytics['tech_counts'], 'متوسط': analytics['avg_by_tech'], 'عدد non-Low': analytics['tech_non_low_counts']})
+    st.dataframe(tech_df)
+
+    # Monthly
+    st.markdown("### شهرياً (عدد, متوسط, نسبة non-Low)")
+    monthly_df = pd.DataFrame({'عدد': analytics['monthly_counts'], 'متوسط': analytics['avg_monthly'], 'نسبة non-Low': analytics['monthly_non_low_pct']})
+    st.dataframe(monthly_df)
+
+    # Tech table
+    st.markdown("### جدول الفنيين")
+    st.dataframe(analytics['tech_table'])
+
+    # Percentages
+    st.markdown(f"### نسبة البلاغات المغلقة خلال 24 ساعة: {analytics['pct_24h']:.2f}%")
+    st.markdown(f"### نسبة البلاغات >3 أيام: {analytics['pct_gt3d']:.2f}%")
+    st.markdown(f"### نسبة البلاغات >7 أيام: {analytics['pct_gt7d']:.2f}%")
+# ══════════════════════════════════════════════════════════════════
+# PREMIUM PDF EXPORT
+# ══════════════════════════════════════════════════════════════════
+st.markdown("---")
+sec("📄 PERFECT PDF — ENGLISH HEADERS + ARABIC DATA")
+p1,p2 = st.columns([3,2])
+with p1:
+    st.markdown(
+        f"<div class='insight-card' style='border-left:5px solid #1f6feb'>"
+        f"<div class='insight-badge'>✅ 100% ACCURATE DATA</div>"
+        f"<div class='insight-text'>"
+        f"<b style='color:#3fb950'>English Headers • Arabic Content • Perfect RTL</b><br>"
+        f"✓ Table Headers: <b>Metric, Value, Coverage, Status</b><br>"
+        f"✓ Data Cells: Arabic with perfect RTL rendering<br>"
+        f"✓ Column Names Auto-Mapped (Arabic → English)<br>"
+        f"✓ Zero Overlap • Increased Line Height<br>"
+        f"✓ Professional USA Client Design<br>"
+        f"✓ Status: {'✅ Ready' if FONT_OK else '⚠️ Loading'}"
+        f"</div></div>",
+        unsafe_allow_html=True)
+with p2:
+    if st.button("📥 Generate Perfect PDF", use_container_width=True, type="primary"):
+        with st.spinner(f"🎨 Creating perfect {pdf_lang} PDF..."):
+            try:
+                buf = generate_premium_pdf(dff, acc, pdf_lang)
+                st.success(f"✅ Perfect {pdf_lang} PDF Generated!")
+                st.download_button(
+                    label=f"⬇️ DOWNLOAD PERFECT {pdf_lang.upper()} PDF",
+                    data=buf,
+                    file_name=f"IT_Helpdesk_Perfect_{pdf_lang}_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True
+                )
+            except Exception as e:
+                st.error(f"❌ Error: {str(e)}")
+st.markdown(
+    "<div style='text-align:center;margin-top:48px;padding-top:24px;border-top:1px solid rgba(88,166,255,.1)'>"
+    "<div style='color:#7d8590;font-size:.92rem;font-weight:600'>Perfect English + Arabic Analytics</div>"
+    "<div style='color:#58a6ff;font-size:.82rem;margin-top:6px;font-weight:500'>Crafted by Tarique Siddique 💙</div>"
+    "</div>",
+    unsafe_allow_html=True)
