@@ -13,6 +13,7 @@
 # 8. Added CSV export for filtered data in Raw Data tab.
 # 9. Added heatmap for Department vs Issue in Trends tab.
 # 10. Added sunburst chart for hierarchical view (Department > Service > Main Category) in Overview tab.
+# Note: Word cloud feature removed due to missing 'wordcloud' module in the environment.
 # ================================================================
 import streamlit as st
 import pandas as pd
@@ -39,10 +40,6 @@ except ImportError:
     ARABIC_SUPPORT = False
     def reshape(t): return str(t)
     def get_display(t): return str(t)
-# New import for word cloud
-from wordcloud import WordCloud
-import matplotlib.pyplot as plt
-from io import BytesIO
 
 st.set_page_config(page_title="IT Helpdesk Analytics", page_icon="🖥️",
                    layout="wide", initial_sidebar_state="expanded")
@@ -323,16 +320,6 @@ def fig_to_png(fig, w=900, h=420):
         return fig.to_image(format="png", width=w, height=h, scale=2)
     except:
         return None
-# New function for word cloud
-def generate_wordcloud(text_freq):
-    wc = WordCloud(width=800, height=400, background_color='rgba(0,0,0,0)', colormap='Blues').generate_from_frequencies(text_freq)
-    fig, ax = plt.subplots(figsize=(10, 5), facecolor='none')
-    ax.imshow(wc, interpolation='bilinear')
-    ax.axis('off')
-    buf = BytesIO()
-    plt.savefig(buf, format='png', transparent=True, bbox_inches='tight')
-    buf.seek(0)
-    return buf
 # ══════════════════════════════════════════════════════════════════
 # PERFECT PDF GENERATOR (English Headers + Arabic Content)
 # ══════════════════════════════════════════════════════════════════
@@ -761,11 +748,6 @@ with tab2:
     fig.update_layout(yaxis={'categoryorder':'total ascending'},showlegend=False,coloraxis_showscale=False)
     st.plotly_chart(ccfg(fig,max(400,top_n*35)),use_container_width=True)
     st.dataframe(d,use_container_width=True,height=450)
-    # New Feature 7: Word cloud for Main Categories
-    sec("☁️ ISSUE WORD CLOUD")
-    text_freq = dff[C_MAIN].value_counts().to_dict()
-    wc_buf = generate_wordcloud(text_freq)
-    st.image(wc_buf)
 with tab3:
     sec("🏢 DEPARTMENT PERFORMANCE")
     d = dff[C_DEPT].value_counts().head(top_n).reset_index(); d.columns=['Dept','Tickets']
