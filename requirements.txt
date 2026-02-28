@@ -1,10 +1,9 @@
 streamlit
 pandas
-openpyxl
 plotly
-kaleido==0.2.1
+requests
 reportlab
 arabic-reshaper
 python-bidi
-requests
-Pillow
+openpyxl
+kaleido
