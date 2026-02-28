@@ -1,6 +1,6 @@
 # ================================================================
-#   IT HELPDESK ANALYTICS — ULTRA PREMIUM v20.0
-#   Perfect Arabic RTL + English Headings + Accurate Data
+#   IT HELPDESK ANALYTICS — ULTRA PREMIUM USA CLIENT v19.0
+#   Perfect Arabic RTL + Zero Overlap + Professional PDF
 #   Author: tarique14321495
 # ================================================================
 
@@ -34,10 +34,10 @@ except ImportError:
 st.set_page_config(page_title="IT Helpdesk Analytics", page_icon="🖥️",
                    layout="wide", initial_sidebar_state="expanded")
 
-# ── PERFECT ARABIC FONT LOADER ───────────────────────────────────
+# ── PERFECT ARABIC FONT LOADER (NO OVERLAP) ─────────────────────
 @st.cache_resource
 def load_arabic_fonts():
-    """Load multiple Arabic font weights"""
+    """Load multiple Arabic font weights for perfect rendering"""
     fonts_loaded = {}
     
     font_urls = {
@@ -97,7 +97,7 @@ def ar(text, max_len=None):
             return t
     return t
 
-# ── PREMIUM CSS ──────────────────────────────────────────────────
+# ── PREMIUM CSS (Same as before) ─────────────────────────────────
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800;900&display=swap');
@@ -128,29 +128,6 @@ st.markdown("""
 .stDownloadButton>button:hover{box-shadow:0 12px 48px rgba(31,111,235,.6)!important;transform:translateY(-4px) scale(1.05)!important;background:linear-gradient(135deg,#1f6feb,#58a6ff,#79c0ff)!important}
 </style>""", unsafe_allow_html=True)
 
-# ── COLUMN MAPPING (Arabic → English) ────────────────────────────
-COLUMN_MAP = {
-    'إدارة العميل': 'Department',
-    'الخدمة': 'Service',
-    'التصنيف الرئيسي': 'Main Category',
-    'التصنيف الفرعي': 'Sub Category',
-    'مسند الى': 'Assigned To'
-}
-
-# Original Arabic column names for data loading
-C_DEPT_AR = 'إدارة العميل'
-C_SVC_AR = 'الخدمة'
-C_MAIN_AR = 'التصنيف الرئيسي'
-C_SUB_AR = 'التصنيف الفرعي'
-C_AGENT_AR = 'مسند الى'
-
-# English names for PDF
-C_DEPT = 'Department'
-C_SVC = 'Service'
-C_MAIN = 'Main Category'
-C_SUB = 'Sub Category'
-C_AGENT = 'Assigned To'
-
 # ── TRANSLATIONS ─────────────────────────────────────────────────
 T = {
     'AR': {
@@ -174,6 +151,9 @@ T = {
         'tab_raw':'🗃️ Data','kpi_sec':'📌 KPIs','ai_insights':'🤖 Insights',
     }
 }
+
+C_DEPT='إدارة العميل'; C_SVC='الخدمة'; C_MAIN='التصنيف الرئيسي'
+C_SUB='التصنيف الفرعي'; C_AGENT='مسند الى'
 
 # ── SIDEBAR ──────────────────────────────────────────────────────
 with st.sidebar:
@@ -202,53 +182,32 @@ if not uploaded:
         unsafe_allow_html=True)
     st.stop()
 
-# ── LOAD DATA (WITH COLUMN RENAMING) ─────────────────────────────
+# ── LOAD DATA ────────────────────────────────────────────────────
 @st.cache_data(show_spinner="⚙️ Processing data...")
 def load_data(rb):
     bh = 2
     for h in [0,1,2,3]:
         try:
             t = pd.read_excel(io.BytesIO(rb), sheet_name=0, header=h)
-            if C_DEPT_AR in t.columns: bh=h; break
+            if C_DEPT in t.columns: bh=h; break
         except: pass
-    
     df = pd.read_excel(io.BytesIO(rb), sheet_name=0, header=bh)
-    
-    # Remove total rows
-    if C_DEPT_AR in df.columns:
-        df = df[~df[C_DEPT_AR].astype(str).str.contains('Grand Total|المجموع', na=False)]
-    
-    # Keep only relevant columns
-    keep = [c for c in [C_DEPT_AR, C_SVC_AR, C_MAIN_AR, C_SUB_AR, C_AGENT_AR] if c in df.columns]
+    if C_DEPT in df.columns:
+        df = df[~df[C_DEPT].astype(str).str.contains('Grand Total|المجموع', na=False)]
+    keep = [c for c in [C_DEPT,C_SVC,C_MAIN,C_SUB,C_AGENT] if c in df.columns]
     df = df[keep].copy()
-    
-    # Forward fill for merged cells
-    for c in [C_DEPT_AR, C_SVC_AR, C_MAIN_AR, C_SUB_AR]:
-        if c in df.columns: 
-            df[c] = df[c].replace('', pd.NA).ffill()
-    
-    # Clean agent names
-    if C_AGENT_AR in df.columns:
-        df[C_AGENT_AR] = df[C_AGENT_AR].astype(str).str.strip()
-        df[C_AGENT_AR] = df[C_AGENT_AR].replace({'nan':pd.NA,'Agent':pd.NA,'مسند الى':pd.NA,'':pd.NA})
-    
-    # Remove empty rows
+    for c in [C_DEPT,C_SVC,C_MAIN,C_SUB]:
+        if c in df.columns: df[c] = df[c].replace('', pd.NA).ffill()
+    if C_AGENT in df.columns:
+        df[C_AGENT] = df[C_AGENT].astype(str).str.strip()
+        df[C_AGENT] = df[C_AGENT].replace({'nan':pd.NA,'Agent':pd.NA,'مسند الى':pd.NA,'':pd.NA})
     df.dropna(how='all', inplace=True)
-    mc = [c for c in [C_DEPT_AR, C_SVC_AR, C_MAIN_AR] if c in df.columns]
+    mc = [c for c in [C_DEPT,C_SVC,C_MAIN] if c in df.columns]
     df = df.dropna(subset=mc, how='all')
     df.reset_index(drop=True, inplace=True)
-    
-    # Create short agent name
-    if C_AGENT_AR in df.columns:
-        df['_short'] = (df[C_AGENT_AR].str.replace('−متعاقد','',regex=False)
-                        .str.replace('-متعاقد','',regex=False).str.strip())
-    else:
-        df['_short'] = pd.NA
-    
-    # ✅ RENAME COLUMNS TO ENGLISH
-    df = df.rename(columns=COLUMN_MAP)
-    
-    # Calculate accuracy stats
+    df['_short'] = (df[C_AGENT].str.replace('−متعاقد','',regex=False)
+                    .str.replace('-متعاقد','',regex=False).str.strip()
+                    if C_AGENT in df.columns else pd.NA)
     acc = {
         'total': len(df),
         'dept_fill':  round(df[C_DEPT].notna().sum()/len(df)*100,1)  if C_DEPT  in df.columns else 0,
@@ -256,7 +215,6 @@ def load_data(rb):
         'main_fill':  round(df[C_MAIN].notna().sum()/len(df)*100,1)  if C_MAIN  in df.columns else 0,
         'agent_fill': round(df[C_AGENT].notna().sum()/len(df)*100,1) if C_AGENT in df.columns else 0,
     }
-    
     return df, acc
 
 try:
@@ -318,7 +276,7 @@ def fig_to_png(fig, w=900, h=420):
         return None
 
 # ══════════════════════════════════════════════════════════════════
-# PERFECT PDF GENERATOR (English Headers + Arabic Content)
+# PERFECT ARABIC PDF GENERATOR (NO OVERLAP)
 # ══════════════════════════════════════════════════════════════════
 def generate_premium_pdf(df_data, stats, language="English"):
     buffer = io.BytesIO()
@@ -330,7 +288,7 @@ def generate_premium_pdf(df_data, stats, language="English"):
                             topMargin=0.75*inch, bottomMargin=0.6*inch)
     story = []
 
-    # ── COLORS ───────────────────────────────────────────────────
+    # ── PREMIUM COLORS ───────────────────────────────────────────
     PRIMARY   = colors.HexColor('#1f6feb')
     ACCENT    = colors.HexColor('#58a6ff')
     SUCCESS   = colors.HexColor('#3fb950')
@@ -342,79 +300,124 @@ def generate_premium_pdf(df_data, stats, language="English"):
     BG        = colors.HexColor('#f6f8fa')
     WHITE     = colors.white
 
-    # ── STYLES ───────────────────────────────────────────────────
+    # ── PERFECT ARABIC STYLES (NO OVERLAP) ───────────────────────
     base_font = AR_FONT if is_ar else 'Helvetica'
     bold_font = AR_FONT_BOLD if is_ar else 'Helvetica-Bold'
+    
+    # Arabic needs MORE leading (line height) to prevent overlap
     ar_leading_multiplier = 1.8 if is_ar else 1.3
     
     cover_title = ParagraphStyle('CT', 
-        fontSize=32, textColor=PRIMARY, alignment=TA_CENTER, fontName=bold_font,
-        spaceAfter=18, leading=32 * ar_leading_multiplier, letterSpacing=0)
+        fontSize=32, 
+        textColor=PRIMARY,
+        alignment=TA_CENTER, 
+        fontName=bold_font,
+        spaceAfter=18, 
+        leading=32 * ar_leading_multiplier,  # Critical!
+        letterSpacing=0)
     
     cover_sub = ParagraphStyle('CS', 
-        fontSize=16, textColor=ACCENT, alignment=TA_CENTER, fontName=base_font,
-        spaceAfter=12, leading=16 * ar_leading_multiplier, letterSpacing=0)
+        fontSize=16, 
+        textColor=ACCENT,
+        alignment=TA_CENTER, 
+        fontName=base_font,
+        spaceAfter=12, 
+        leading=16 * ar_leading_multiplier,
+        letterSpacing=0)
     
     cover_meta = ParagraphStyle('CM', 
-        fontSize=9, textColor=colors.HexColor('#6e7681'),
-        alignment=TA_CENTER, spaceAfter=6, fontName='Helvetica', leading=12)
+        fontSize=9, 
+        textColor=colors.HexColor('#6e7681'),
+        alignment=TA_CENTER, 
+        spaceAfter=6, 
+        fontName='Helvetica',
+        leading=12)
     
     h1 = ParagraphStyle('H1', 
-        fontSize=18, textColor=PRIMARY, fontName=bold_font,
-        spaceBefore=20, spaceAfter=14, leading=18 * ar_leading_multiplier,
+        fontSize=18, 
+        textColor=PRIMARY,
+        fontName=bold_font,
+        spaceBefore=20, 
+        spaceAfter=14, 
+        leading=18 * ar_leading_multiplier,
         alignment=TA_RIGHT if is_ar else TA_LEFT)
     
     h2 = ParagraphStyle('H2', 
-        fontSize=14, textColor=ACCENT, fontName=bold_font,
-        spaceBefore=16, spaceAfter=12, leading=14 * ar_leading_multiplier,
+        fontSize=14, 
+        textColor=ACCENT,
+        fontName=bold_font,
+        spaceBefore=16, 
+        spaceAfter=12, 
+        leading=14 * ar_leading_multiplier,
         alignment=TA_RIGHT if is_ar else TA_LEFT)
     
     h3 = ParagraphStyle('H3', 
-        fontSize=12, textColor=colors.HexColor('#6e7681'), fontName=bold_font,
-        spaceBefore=12, spaceAfter=10, leading=12 * ar_leading_multiplier,
+        fontSize=12, 
+        textColor=colors.HexColor('#6e7681'),
+        fontName=bold_font,
+        spaceBefore=12, 
+        spaceAfter=10,
+        leading=12 * ar_leading_multiplier,
         alignment=TA_RIGHT if is_ar else TA_LEFT)
     
     body = ParagraphStyle('BD', 
-        fontSize=10, textColor=colors.HexColor('#24292f'),
+        fontSize=10, 
+        textColor=colors.HexColor('#24292f'),
         alignment=TA_RIGHT if is_ar else TA_JUSTIFY,
-        leading=10 * ar_leading_multiplier, fontName=base_font,
-        spaceBefore=8, spaceAfter=8)
+        leading=10 * ar_leading_multiplier,  # Critical!
+        fontName=base_font,
+        spaceBefore=8, 
+        spaceAfter=8)
     
     footer = ParagraphStyle('FT', 
-        fontSize=8, textColor=colors.HexColor('#6e7681'),
-        alignment=TA_CENTER, fontName='Helvetica', leading=11)
+        fontSize=8, 
+        textColor=colors.HexColor('#6e7681'),
+        alignment=TA_CENTER, 
+        fontName='Helvetica',
+        leading=11)
+    
+    bullet_style = ParagraphStyle('BL', 
+        fontSize=10, 
+        textColor=colors.HexColor('#24292f'),
+        leftIndent=20 if not is_ar else 0,
+        rightIndent=0 if not is_ar else 20,
+        bulletIndent=10, 
+        fontName=base_font,
+        leading=10 * ar_leading_multiplier,  # Critical!
+        spaceBefore=6, 
+        spaceAfter=6,
+        alignment=TA_RIGHT if is_ar else TA_LEFT)
 
-    # ── TABLE HELPER ─────────────────────────────────────────────
+    # ── TABLE HELPER (ARABIC-AWARE) ──────────────────────────────
     def tbl(data, widths, hdr_color, stripe=True):
-        """Create table with English headers and Arabic-aware content"""
+        """Create table with proper Arabic text handling"""
+        
+        # Process Arabic text in data
         processed_data = []
         for row_idx, row in enumerate(data):
             processed_row = []
-            for cell_idx, cell in enumerate(row):
+            for cell in row:
                 cell_str = str(cell)
-                
-                # ✅ FIRST ROW (HEADERS) = ALWAYS ENGLISH
-                if row_idx == 0:
-                    processed_row.append(cell_str)  # Keep headers as-is
+                if is_ar and any('\u0600' <= c <= '\u06FF' for c in cell_str):
+                    # Arabic text: apply RTL and truncate if needed
+                    processed_row.append(ar(cell_str, max_len=50))
                 else:
-                    # ✅ DATA ROWS = Arabic content with RTL if needed
-                    if is_ar and any('\u0600' <= c <= '\u06FF' for c in cell_str):
-                        processed_row.append(ar(cell_str, max_len=50))
-                    else:
-                        processed_row.append(cell_str[:50] if len(cell_str) > 50 else cell_str)
-            
+                    # English text: truncate if too long
+                    processed_row.append(cell_str[:50] if len(cell_str) > 50 else cell_str)
             processed_data.append(processed_row)
         
         t = Table(processed_data, colWidths=widths, repeatRows=1)
+        
+        # Increased cell padding for Arabic
         v_padding = 10 if is_ar else 7
         
         styles = [
             ('BACKGROUND',    (0,0), (-1,0),  hdr_color),
             ('TEXTCOLOR',     (0,0), (-1,0),  WHITE),
-            ('FONTNAME',      (0,0), (-1,0),  'Helvetica-Bold'),  # ✅ English headers
+            ('FONTNAME',      (0,0), (-1,0),  bold_font),
             ('FONTSIZE',      (0,0), (-1,0),  9),
             ('ALIGN',         (0,0), (-1,-1), 'CENTER'),
-            ('FONTNAME',      (0,1), (-1,-1), base_font),  # ✅ Arabic data
+            ('FONTNAME',      (0,1), (-1,-1), base_font),
             ('FONTSIZE',      (0,1), (-1,-1), 8.5),
             ('GRID',          (0,0), (-1,-1), 0.5, colors.HexColor('#d0d7de')),
             ('VALIGN',        (0,0), (-1,-1), 'MIDDLE'),
@@ -438,7 +441,9 @@ def generate_premium_pdf(df_data, stats, language="English"):
             story.append(Image(io.BytesIO(png), width=w_in*inch, height=h_in*inch))
 
     def metric_box(icon, label, value, color=PRIMARY):
+        """Create metric box with proper Arabic handling"""
         label_text = ar(label, max_len=40) if is_ar else label
+        
         data = [[icon, label_text, value]]
         t = Table(data, colWidths=[0.5*inch, 3.5*inch, 2*inch])
         t.setStyle(TableStyle([
@@ -485,6 +490,7 @@ def generate_premium_pdf(df_data, stats, language="English"):
     
     story.append(Spacer(1, 0.5*inch))
     
+    # Metrics
     metrics = [
         ("🎫", "إجمالي التذاكر" if is_ar else "Total Support Tickets", f"{total:,}", ACCENT),
         ("🏢", "الإدارات" if is_ar else "Departments Analyzed", f"{df_data[C_DEPT].nunique()}", SUCCESS),
@@ -525,17 +531,17 @@ high precision. Data quality verification demonstrates {stats['dept_fill']}% dep
     story.append(Paragraph(exec_text.strip(), body))
     story.append(Spacer(1, 0.2*inch))
 
-    # ══════════════════════════════════════════════════════════════
-    # KPI TABLE (✅ ENGLISH HEADERS)
-    # ══════════════════════════════════════════════════════════════
+    # KPIs
     story.append(Paragraph(
         ar("مؤشرات الأداء الرئيسية") if is_ar else "KEY PERFORMANCE INDICATORS",
         h2))
     story.append(Spacer(1, 0.1*inch))
     
-    # ✅ HEADERS ALWAYS IN ENGLISH
     kpi_data = [
-        ["Metric", "Value", "Coverage", "Status"],  # ✅ English
+        [ar("المؤشر") if is_ar else "Metric",
+         ar("القيمة") if is_ar else "Value",
+         ar("التغطية") if is_ar else "Coverage",
+         ar("الحالة") if is_ar else "Status"],
         [ar("إجمالي التذاكر") if is_ar else "Total Tickets",
          f"{total:,}", "100%", "✓"],
         [ar("الإدارات الفريدة") if is_ar else "Unique Departments",
@@ -555,17 +561,17 @@ high precision. Data quality verification demonstrates {stats['dept_fill']}% dep
     story.append(tbl(kpi_data, [2.2*inch, 1.3*inch, 1.1*inch, 0.7*inch], PRIMARY))
     story.append(Spacer(1, 0.2*inch))
 
-    # ══════════════════════════════════════════════════════════════
-    # TOP PERFORMERS (✅ ENGLISH HEADERS)
-    # ══════════════════════════════════════════════════════════════
+    # TOP PERFORMERS
     story.append(Paragraph(
         ar("أفضل الأداء والمقاييس الحرجة") if is_ar else "TOP PERFORMERS & CRITICAL METRICS",
         h2))
     story.append(Spacer(1, 0.1*inch))
     
-    # ✅ HEADERS IN ENGLISH, DATA IN ARABIC
     top_data = [
-        ["Category", "Top Item", "Volume", "% Share"],  # ✅ English
+        [ar("الفئة") if is_ar else "Category",
+         ar("العنصر الأول") if is_ar else "Top Item",
+         ar("التذاكر") if is_ar else "Volume",
+         ar("النسبة") if is_ar else "% Share"],
         [ar("أكثر إدارة") if is_ar else "Busiest Department",
          ar(td_name, max_len=35),
          f"{int(td_cnt):,}" if len(_dp) else '0',
@@ -591,6 +597,7 @@ high precision. Data quality verification demonstrates {stats['dept_fill']}% dep
         h1))
     story.append(Spacer(1, 0.15*inch))
 
+    # Service Distribution
     svc_df = dff[C_SVC].value_counts().head(8).reset_index()
     svc_df.columns = ['Service','Count']
     fig_svc = px.pie(svc_df, values='Count', names='Service',
@@ -605,6 +612,7 @@ high precision. Data quality verification demonstrates {stats['dept_fill']}% dep
     add_chart(fig_svc, 7.5, 3)
     story.append(Spacer(1, 0.15*inch))
 
+    # Department Bar
     dv = dff[C_DEPT].value_counts().head(12).reset_index()
     dv.columns = ['Department','Tickets']
     fig_dept = px.bar(dv, x='Tickets', y='Department', orientation='h',
@@ -623,40 +631,61 @@ high precision. Data quality verification demonstrates {stats['dept_fill']}% dep
     story.append(PageBreak())
 
     # ══════════════════════════════════════════════════════════════
-    # DETAILED TABLES (✅ ENGLISH HEADERS)
+    # DETAILED TABLES
     # ══════════════════════════════════════════════════════════════
     story.append(Paragraph(
         ar("التحليل التفصيلي — أعلى المشكلات") if is_ar else "DETAILED ANALYSIS — TOP ISSUES",
         h1))
     story.append(Spacer(1, 0.12*inch))
 
-    # ✅ ENGLISH HEADERS
-    issue_headers = ["#", "Issue Category", "Count", "%"]
+    issue_headers = [
+        '#',
+        ar("فئة المشكلة") if is_ar else "Issue Category",
+        ar("العدد") if is_ar else "Count",
+        '%'
+    ]
+    
     issue_rows = [issue_headers]
     for i,(name,cnt) in enumerate(_is.head(18).items(),1):
         pct = round(cnt/total*100,1)
-        issue_rows.append([str(i), ar(name, max_len=45), f"{int(cnt):,}", f"{pct}%"])
+        issue_rows.append([
+            str(i), 
+            ar(name, max_len=45), 
+            f"{int(cnt):,}", 
+            f"{pct}%"
+        ])
     
     story.append(tbl(issue_rows, [0.3*inch, 3.8*inch, 0.8*inch, 0.6*inch], DANGER))
     story.append(Spacer(1, 0.2*inch))
 
+    # Departments
     story.append(Paragraph(
         ar("الإدارات — تحليل الحمل") if is_ar else "DEPARTMENTS — WORKLOAD",
         h2))
     story.append(Spacer(1, 0.1*inch))
     
-    # ✅ ENGLISH HEADERS
-    dept_headers = ["#", "Department", "Tickets", "%"]
+    dept_headers = [
+        '#',
+        ar("الإدارة") if is_ar else "Department",
+        ar("التذاكر") if is_ar else "Tickets",
+        '%'
+    ]
+    
     dept_rows = [dept_headers]
     for i,(name,cnt) in enumerate(_dp.head(18).items(),1):
         pct = round(cnt/total*100,1)
-        dept_rows.append([str(i), ar(name, max_len=45), f"{int(cnt):,}", f"{pct}%"])
+        dept_rows.append([
+            str(i), 
+            ar(name, max_len=45), 
+            f"{int(cnt):,}", 
+            f"{pct}%"
+        ])
     
     story.append(tbl(dept_rows, [0.3*inch, 3.8*inch, 0.8*inch, 0.6*inch], ACCENT))
     story.append(PageBreak())
 
     # ══════════════════════════════════════════════════════════════
-    # AGENT PERFORMANCE (✅ ENGLISH HEADERS)
+    # AGENT PERFORMANCE
     # ══════════════════════════════════════════════════════════════
     if not df_data[C_AGENT].dropna().empty:
         story.append(Paragraph(
@@ -664,15 +693,77 @@ high precision. Data quality verification demonstrates {stats['dept_fill']}% dep
             h1))
         story.append(Spacer(1, 0.12*inch))
 
-        # ✅ ENGLISH HEADERS
-        agent_headers = ["#", "Agent Name", "Tickets", "%"]
+        agent_headers = [
+            '#',
+            ar("اسم الموظف") if is_ar else "Agent Name",
+            ar("التذاكر") if is_ar else "Tickets",
+            '%'
+        ]
+        
         agent_rows = [agent_headers]
         for i,(name,cnt) in enumerate(_ag.head(20).items(),1):
             pct = round(cnt/total*100,1)
-            agent_rows.append([str(i), ar(str(name), max_len=42), f"{int(cnt):,}", f"{pct}%"])
+            agent_rows.append([
+                str(i), 
+                ar(str(name), max_len=42), 
+                f"{int(cnt):,}", 
+                f"{pct}%"
+            ])
         
         story.append(tbl(agent_rows, [0.3*inch, 3.8*inch, 0.8*inch, 0.6*inch], SUCCESS))
         story.append(Spacer(1, 0.2*inch))
+
+    # ══════════════════════════════════════════════════════════════
+    # STRATEGIC RECOMMENDATIONS
+    # ══════════════════════════════════════════════════════════════
+    story.append(Paragraph(
+        ar("التوصيات الاستراتيجية") if is_ar else "STRATEGIC RECOMMENDATIONS",
+        h1))
+    story.append(Spacer(1, 0.12*inch))
+
+    recommendations = [
+        ("تحسين الموارد" if is_ar else "Resource Optimization",
+         ar(f"إعادة توزيع العمل من الإدارة ذات الحجم الأكبر لتحسين استخدام الموارد", max_len=80) if is_ar else 
+         f"Redistribute workload from high-volume departments to optimize utilization"),
+        
+        ("تخطيط القدرات" if is_ar else "Capacity Planning",
+         ar("مراجعة قدرة الموظفين ذوي الأداء الأعلى لضمان مستويات إنتاجية مستدامة", max_len=80) if is_ar else
+         "Review top performers' capacity to ensure sustainable productivity levels"),
+        
+        ("منع المشكلات" if is_ar else "Issue Prevention",
+         ar("تنفيذ تحليل السبب الجذري لأعلى ثلاث مشكلات متكررة لتقليل حجم التذاكر", max_len=80) if is_ar else
+         "Implement root cause analysis for top 3 recurring issues to reduce volume"),
+        
+        ("التدريب" if is_ar else "Training Investment",
+         ar("نشر برامج تدريب مستهدفة للإدارات ذات معدلات الحل المنخفضة", max_len=80) if is_ar else
+         "Deploy targeted training for departments with lower resolution rates"),
+    ]
+
+    for i, (title, desc) in enumerate(recommendations, 1):
+        rec_data = [[f"{i}.", title, desc]]
+        rec_table = Table(rec_data, colWidths=[0.3*inch, 1.5*inch, 4.2*inch])
+        rec_table.setStyle(TableStyle([
+            ('BACKGROUND',  (0,0), (1,0), BG),
+            ('BACKGROUND',  (2,0), (2,0), WHITE),
+            ('FONTNAME',    (0,0), (0,0), 'Helvetica-Bold'),
+            ('FONTNAME',    (1,0), (1,0), bold_font),
+            ('FONTNAME',    (2,0), (2,0), base_font),
+            ('FONTSIZE',    (0,0), (2,0), 9.5),
+            ('TEXTCOLOR',   (0,0), (1,0), PRIMARY),
+            ('TEXTCOLOR',   (2,0), (2,0), colors.HexColor('#24292f')),
+            ('ALIGN',       (0,0), (0,0), 'CENTER'),
+            ('ALIGN',       (1,0), (1,0), 'RIGHT' if is_ar else 'LEFT'),
+            ('ALIGN',       (2,0), (2,0), 'RIGHT' if is_ar else 'LEFT'),
+            ('VALIGN',      (0,0), (-1,-1), 'MIDDLE'),
+            ('LEFTPADDING', (0,0), (-1,-1), 10),
+            ('RIGHTPADDING',(0,0), (-1,-1), 10),
+            ('TOPPADDING',  (0,0), (-1,-1), 12 if is_ar else 10),
+            ('BOTTOMPADDING',(0,0),(-1,-1), 12 if is_ar else 10),
+            ('BOX',         (0,0), (-1,-1), 1.5, ACCENT),
+            ('ROUNDEDCORNERS', [8,8,8,8]),
+        ]))
+        story.append(rec_table)
+        story.append(Spacer(1, 0.1*inch))
 
     # FOOTER
     story.append(Spacer(1, 0.4*inch))
@@ -686,7 +777,7 @@ high precision. Data quality verification demonstrates {stats['dept_fill']}% dep
     return buffer
 
 # ══════════════════════════════════════════════════════════════════
-# DASHBOARD UI
+# DASHBOARD UI (same as before, keeping compact)
 # ══════════════════════════════════════════════════════════════════
 
 badge = (' <span style="background:rgba(210,153,34,.15);color:#d29922;padding:4px 14px;'
@@ -825,26 +916,27 @@ with tab6:
 # PREMIUM PDF EXPORT
 # ══════════════════════════════════════════════════════════════════
 st.markdown("---")
-sec("📄 PERFECT PDF — ENGLISH HEADERS + ARABIC DATA")
+sec("📄 PERFECT ARABIC PDF REPORT (NO OVERLAP)")
 
 p1,p2 = st.columns([3,2])
 with p1:
     st.markdown(
         f"<div class='insight-card' style='border-left:5px solid #1f6feb'>"
-        f"<div class='insight-badge'>✅ 100% ACCURATE DATA</div>"
+        f"<div class='insight-badge'>✅ PERFECT ARABIC RTL</div>"
         f"<div class='insight-text'>"
-        f"<b style='color:#3fb950'>English Headers • Arabic Content • Perfect RTL</b><br>"
-        f"✓ Table Headers: <b>Metric, Value, Coverage, Status</b><br>"
-        f"✓ Data Cells: Arabic with perfect RTL rendering<br>"
-        f"✓ Column Names Auto-Mapped (Arabic → English)<br>"
-        f"✓ Zero Overlap • Increased Line Height<br>"
+        f"<b style='color:#3fb950'>Zero Overlap • Accurate Rendering</b><br>"
+        f"✓ Amiri Regular + Bold Fonts Loaded<br>"
+        f"✓ Increased Line Height (1.8x for Arabic)<br>"
+        f"✓ Proper Cell Padding (10px vertical)<br>"
+        f"✓ Text Truncation (max 50 chars)<br>"
+        f"✓ Character-by-Character RTL Processing<br>"
         f"✓ Professional USA Client Design<br>"
         f"✓ Status: {'✅ Ready' if FONT_OK else '⚠️ Loading'}"
         f"</div></div>",
         unsafe_allow_html=True)
 with p2:
     if st.button("📥 Generate Perfect PDF", use_container_width=True, type="primary"):
-        with st.spinner(f"🎨 Creating perfect {pdf_lang} PDF..."):
+        with st.spinner(f"🎨 Creating perfect {pdf_lang} PDF (no overlap)..."):
             try:
                 buf = generate_premium_pdf(dff, acc, pdf_lang)
                 st.success(f"✅ Perfect {pdf_lang} PDF Generated!")
@@ -860,7 +952,7 @@ with p2:
 
 st.markdown(
     "<div style='text-align:center;margin-top:48px;padding-top:24px;border-top:1px solid rgba(88,166,255,.1)'>"
-    "<div style='color:#7d8590;font-size:.92rem;font-weight:600'>Perfect English + Arabic Analytics</div>"
+    "<div style='color:#7d8590;font-size:.92rem;font-weight:600'>Perfect Arabic RTL Analytics</div>"
     "<div style='color:#58a6ff;font-size:.82rem;margin-top:6px;font-weight:500'>Crafted by Tarique Siddique 💙</div>"
     "</div>",
     unsafe_allow_html=True)
