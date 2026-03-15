@@ -1223,6 +1223,6 @@ with p2:
 st.markdown(
     "<div style='text-align:center;margin-top:48px;padding-top:24px;border-top:1px solid rgba(88,166,255,.1)'>"
     "<div style='color:#7d8590;font-size:.92rem;font-weight:600'>Perfect English + Arabic Analytics</div>"
-    "<div style='color:#58a6ff;font-size:.82rem;margin-top:6px;font-weight:500'>Crafted by Tarique Siddique 💙</div>"
+    "<div style='color:#58a6ff;font-size:.82rem;margin-top:6px;font-weight:500'>Crafted by ziad 💙</div>"
     "</div>",
     unsafe_allow_html=True)
