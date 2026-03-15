@@ -971,7 +971,7 @@ high precision. Data quality verification demonstrates {stats['dept_fill']}% dep
     story.append(Spacer(1, 0.4*inch))
     story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor('#d0d7de'), spaceAfter=10))
     story.append(Paragraph(
-        f"IT Helpdesk Analytics | {now.strftime('%B %Y')} | Tarique Siddique",
+        f"IT Helpdesk Analytics | {now.strftime('%B %Y')} | ziad",
         footer))
     doc.build(story)
     buffer.seek(0)
